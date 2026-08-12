@@ -1,30 +1,31 @@
 {
   "status": "draft-not-submitted",
-  "verifiedAt": "2026-08-12T11:30:00+08:00",
+  "verifiedAt": "2026-08-12T11:38:00+08:00",
   "officialGuide": "https://img-bss.csdnimg.cn/bss/aikj/ai-hackathon-guide.html",
   "submissionUrl": "https://marketing.csdn.net/questions/Q2607081206113789889?pId=3339",
   "deadline": "2026-08-20",
+  "verifiedFormLimits": {
+    "teamName": 30,
+    "solutionName": 30,
+    "solutionOverview": 1000,
+    "technicalPlan": 1000,
+    "repositoryUrl": 100,
+    "attachmentMaxBytes": 209715200,
+    "attachmentExtensions": ["pdf", "zip", "gz"]
+  },
   "fields": {
     "teamName": "轻灵",
     "track": "AI 市场洞察",
     "solutionName": "Qling 出海智察",
-    "solutionOverview": "面向准备进入美国、欧盟市场的中小跨境卖家，解决评论、竞品价格和法规信息分散、AI 结论难以回溯证据的问题。用户导入依法获得的商品评论 CSV，并选择美国、欧盟或双市场范围；系统完成隐私字段拦截、评论痛点提取、确定性机会评分、美国 FCC 与欧盟共同充电器适用范围提醒、分币种竞品快照和定价情景计算。每项结论绑定原始记录、日期和来源，未知证据 ID 会被拒绝。系统支持 JSON 证据报告和 Electron 离线演示，不实时抓取平台数据，合规输出仅作信息辅助。",
-    "coreFunctions": "1. 评论洞察：识别高负载发热、多口切换中断等问题并绑定证据。\n2. 机会评分：按痛点、改善空间、竞争与利润、数据可信度和合规成本固定加权。\n3. 合规预警：按 US/EU 市场展示官方来源并要求人工复核。\n4. 竞品快照：USD 与 EUR 分开计算，避免跨币种误导。\n5. 定价情景：计算单件贡献、贡献率和保本销量，不预测真实需求。",
-    "highlights": "以证据 ID 约束模型输出，虚构引用无法进入报告；AI 负责理解，确定性规则负责评分；Web 与离线桌面版双路径保证现场可复现；CSV 默认本地处理并拒绝个人信息字段。",
+    "solutionOverview": "【一句话定义】Qling 出海智察面向准备进入美国、欧盟市场的中小跨境卖家，把依法获得的商品评论、竞品价格和官方监管资料转化为可回溯证据的选品建议。\n【核心功能】1. 导入评论 CSV，校验字段、去重并拒绝 email、phone、address 等个人信息列；2. 识别高负载发热、多口切换中断等评论痛点并绑定原始记录；3. 按痛点、改善空间、竞争与利润、数据可信度、合规成本生成确定性机会评分；4. 按美国/欧盟范围展示 FCC 与欧盟委员会官方来源，USD 与 EUR 分开计算竞品和定价情景；5. 导出包含证据 ID、时间和来源的 JSON 报告。\n【方案亮点】模型输出只能引用输入中的 reviewId/policyId，未知引用会被拒绝；AI 负责文本理解，确定性规则负责评分；Web 与 Electron 离线演示双路径保证现场可复现。系统不实时抓取平台数据，不预测真实需求，合规输出仅作信息辅助并要求人工复核。",
     "technicalPlan": "前端采用 React、TypeScript、Vite；领域层负责 CSV schema 校验、市场范围过滤、评论主题、机会评分、合规证据、竞品和定价计算。模型层提供 fixture、mock 和阿里云百炼兼容 Provider。百炼密钥仅由监听 127.0.0.1 的服务端代理从环境变量读取，代理限制本机 Origin、JSON、1MB 请求体和 20 秒超时。模型输出必须引用输入中的 reviewId/policyId，随后由领域层绑定来源并生成确定性报告。质量门禁包含单元测试、服务端安全测试、浏览器 E2E、200 例机器播种评测及可复现材料包校验。",
-    "attachment": "artifacts/submission/qling-preliminary-materials.zip"
+    "attachment": "artifacts/submission/qling-preliminary-materials.zip",
+    "repositoryUrl": ""
   },
-  "unverifiedLimits": [
-    "solutionName",
-    "solutionOverview",
-    "coreFunctions",
-    "highlights",
-    "technicalPlan",
-    "attachment"
-  ],
+  "unverifiedLimits": [],
   "requiredBeforeSubmit": [
-    "在登录后的初赛表单逐项核对字符或文件限制",
-    "核对队长姓名、联系方式和参赛场景选项",
+    "在官网用本文件替换现存的过度承诺草稿",
+    "仓库链接保持空白，除非另行授权创建或公开远程仓库",
     "展示最终字段并获得新的明确提交确认"
   ]
 }
