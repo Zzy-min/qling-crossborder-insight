@@ -30,17 +30,17 @@ export class MockProvider implements AnalysisProvider {
 
 const modelOutputSchema = z.object({
   themes: z.array(z.object({
-    id: z.string().min(1),
-    label: z.string().min(1),
+    id: z.string().trim().min(1).max(80),
+    label: z.string().trim().min(1).max(200),
     sentiment: z.enum(['positive', 'negative']),
-    reviewIds: z.array(z.string().min(1)).min(1),
-  })),
+    reviewIds: z.array(z.string().trim().min(1).max(120)).min(1).max(100),
+  })).max(20),
   complianceRisks: z.array(z.object({
-    id: z.string().min(1),
-    label: z.string().min(1),
+    id: z.string().trim().min(1).max(80),
+    label: z.string().trim().min(1).max(200),
     severity: z.enum(['low', 'medium', 'high']),
-    policyIds: z.array(z.string().min(1)).min(1),
-  })),
+    policyIds: z.array(z.string().trim().min(1).max(120)).min(1).max(50),
+  })).max(20),
 })
 
 function materializeModelOutput(content: string, dataset: DatasetBundle): ProviderAnalysis {
@@ -58,10 +58,21 @@ function materializeModelOutput(content: string, dataset: DatasetBundle): Provid
     return { sourceUrl: row.sourceUrl, capturedAt: row.effectiveAt, excerpt: row.summary, recordId: id, evidenceType: 'policy' }
   }
   return {
-    themes: parsed.themes.map(({ reviewIds, ...theme }) => ({ ...theme, mentions: reviewIds.length, evidence: reviewIds.map(reviewEvidence) })),
+    themes: parsed.themes.map(({ reviewIds, ...theme }) => {
+      const uniqueReviewIds = [...new Set(reviewIds)]
+      return { ...theme, mentions: uniqueReviewIds.length, evidence: uniqueReviewIds.map(reviewEvidence) }
+    }),
     complianceRisks: parsed.complianceRisks.map(({ policyIds, ...risk }) => {
-      const evidence = policyIds.map(policyEvidence)
-      const policy = policyMap.get(policyIds[0])!
+      const uniquePolicyIds = [...new Set(policyIds)]
+      const policies = uniquePolicyIds.map((id) => {
+        const policy = policyMap.get(id)
+        if (!policy) throw new Error(`Model cited unknown policy ID: ${id}`)
+        return policy
+      })
+      const markets = new Set(policies.map((policy) => policy.market))
+      if (markets.size !== 1) throw new Error(`Model mixed policy markets in one risk: ${risk.id}`)
+      const evidence = uniquePolicyIds.map(policyEvidence)
+      const policy = policies[0]
       return { ...risk, market: policy.market, evidence, humanReviewRequired: true as const }
     }),
   }

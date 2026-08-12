@@ -33,6 +33,31 @@ describe('analysis provider contract', () => {
     await expect(new BailianProvider({ apiKey: 'test-only', fetcher }).analyze(sampleDataset))
       .rejects.toThrow('unknown review ID')
   })
+
+  it('deduplicates cited IDs before calculating mentions', async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+      themes: [{ id: 'thermal', label: '发热', sentiment: 'negative', reviewIds: ['review-hot-1', 'review-hot-1'] }],
+      complianceRisks: [],
+    }) } }] })))
+    const result = await new BailianProvider({ apiKey: 'test-only', fetcher }).analyze(sampleDataset)
+    expect(result.themes[0].mentions).toBe(1)
+    expect(result.themes[0].evidence).toHaveLength(1)
+  })
+
+  it('rejects one compliance finding that mixes policy markets', async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+      themes: [],
+      complianceRisks: [{ id: 'mixed', label: '混合风险', severity: 'medium', policyIds: ['us-fcc-label', 'eu-common-charger-scope'] }],
+    }) } }] })))
+    await expect(new BailianProvider({ apiKey: 'test-only', fetcher }).analyze(sampleDataset))
+      .rejects.toThrow('Model mixed policy markets in one risk: mixed')
+  })
+
+  it('rejects oversized model result collections', async () => {
+    const themes = Array.from({ length: 21 }, (_, index) => ({ id: `theme-${index}`, label: '主题', sentiment: 'negative', reviewIds: ['review-hot-1'] }))
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ themes, complianceRisks: [] }) } }] })))
+    await expect(new BailianProvider({ apiKey: 'test-only', fetcher }).analyze(sampleDataset)).rejects.toThrow()
+  })
 })
 
 describe('browser proxy provider', () => {
