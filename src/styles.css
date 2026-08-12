@@ -6,7 +6,7 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; }
+body { margin: 0; min-width: 320px; overflow-x: hidden; }
 a { color: inherit; }
 button, input { font: inherit; }
 
@@ -30,6 +30,7 @@ h1 { font-size: clamp(48px, 6vw, 84px); line-height: .98; letter-spacing: -.055e
 h1 em { color: #c9ff66; font-style: normal; }
 .hero-copy { color: #b9c3bd; max-width: 650px; font-size: 18px; line-height: 1.7; }
 .upload-button { display: inline-block; margin-top: 20px; padding: 14px 22px; border-radius: 4px; color: #172018; background: #c9ff66; font-weight: 800; cursor: pointer; }
+.export-button { margin: 20px 0 0 10px; padding: 13px 20px; border: 1px solid rgba(201,255,102,.55); border-radius: 4px; color: #dfffa7; background: transparent; font-weight: 750; cursor: pointer; }
 .upload-button input { display: none; }
 .source-note { display: inline-block; margin-left: 14px; color: #9caaa2; font-size: 13px; }
 .error { color: #ff9c89; }
@@ -46,6 +47,8 @@ h1 em { color: #c9ff66; font-style: normal; }
 .section-heading h2 { margin: 8px 0 0; font-size: clamp(28px, 3vw, 42px); letter-spacing: -.04em; }
 .section-heading > p { color: #68736d; font-size: 13px; }
 .grid.three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.grid.two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.auxiliary { margin-top: 18px; }
 .panel { position: relative; padding: 30px; min-height: 430px; border-radius: 10px; background: #fafbf7; box-shadow: 0 16px 50px rgba(31,45,37,.06); }
 .panel h3 { font-size: 24px; margin: 8px 0 28px; }
 .number { color: #9da69f; font-size: 12px; }
@@ -61,11 +64,36 @@ h1 em { color: #c9ff66; font-style: normal; }
 .bar i { display: block; height: 100%; background: #4e8b36; }
 .panel > small { color: #768078; line-height: 1.55; }
 .risk > span { display: inline-block; margin-bottom: 12px; padding: 5px 8px; color: #7b3f1e; background: #ffe1bc; font-size: 10px; font-weight: 900; }
+.snapshot-summary, .pricing-result { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px; }
+.snapshot-summary > div, .pricing-result > div { padding: 16px; border-radius: 7px; background: #eef2ea; }
+.snapshot-summary small, .pricing-result small, .competitor-list small { display: block; color: #6d7971; margin-bottom: 5px; }
+.snapshot-summary strong, .pricing-result strong { font-size: 24px; }
+.competitor-list { margin-bottom: 22px; }
+.competitor-list > div { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 13px 0; border-top: 1px solid #dfe3dc; }
+.competitor-list span { min-width: 0; }
+.competitor-list small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 430px; }
+.pricing-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+.pricing-inputs label { color: #657069; font-size: 13px; font-weight: 700; }
+.pricing-inputs input { width: 100%; margin-top: 7px; padding: 11px; border: 1px solid #d6ddd4; border-radius: 5px; background: white; }
+.pricing-result { grid-template-columns: repeat(3, 1fr); }
+.scenario-error { padding: 16px; border-radius: 6px; color: #8a3f25; background: #ffeadc; }
 
 @media (max-width: 900px) {
-  .hero-grid, .grid.three { grid-template-columns: 1fr; }
+  .hero-grid, .grid.three, .grid.two { grid-template-columns: 1fr; }
   .hero-grid { padding-top: 60px; }
   .section-heading { align-items: start; flex-direction: column; }
   .prototype-pill { display: none; }
   .source-note { display: block; margin: 12px 0 0; }
+  .export-button { margin-left: 8px; }
+}
+
+@media (max-width: 540px) {
+  .hero { padding-inline: 20px; }
+  .hero-grid > *, .decision-card { min-width: 0; }
+  h1 { font-size: 36px; line-height: 1.05; letter-spacing: -.055em; overflow-wrap: anywhere; }
+  .hero-copy { font-size: 16px; }
+  .hero-copy, .decision-card p, .section-heading h2 { overflow-wrap: anywhere; }
+  .section-heading h2 { font-size: 26px; }
+  .pricing-inputs, .pricing-result { grid-template-columns: 1fr; }
+  .export-button { display: block; margin-left: 0; }
 }

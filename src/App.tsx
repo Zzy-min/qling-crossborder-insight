@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { buildInsightReport } from './domain/analysis'
 import { parseReviewCsv } from './domain/csv'
 import type { DatasetBundle } from './domain/types'
+import { buildCompetitorSnapshot, simulatePricing } from './domain/market'
 import { sampleDataset } from './fixtures/usbCChargers'
 
 const scoreLabels = {
@@ -22,6 +23,16 @@ export function App() {
   const [sourceLabel, setSourceLabel] = useState('内置公开演示样例')
   const [error, setError] = useState('')
   const report = useMemo(() => buildInsightReport(dataset), [dataset])
+  const competitors = useMemo(() => buildCompetitorSnapshot(dataset.products), [dataset.products])
+  const [price, setPrice] = useState(39.99)
+  const [landedCost, setLandedCost] = useState(18)
+  const pricing = useMemo(() => {
+    try {
+      return simulatePricing({ price, landedCost, platformRate: 0.15, adRate: 0.12, fixedLaunchCost: 2500 })
+    } catch {
+      return null
+    }
+  }, [price, landedCost])
 
   async function handleCsvFile(file: File | undefined) {
     if (!file) return
@@ -33,6 +44,23 @@ export function App() {
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'CSV 解析失败')
     }
+  }
+
+  function exportReport() {
+    const payload = {
+      schemaVersion: '1.0',
+      sourceLabel,
+      report,
+      competitorSnapshot: competitors,
+      pricingScenario: pricing,
+      disclaimer: '本报告为信息辅助，不构成法律、财务或销量预测。',
+    }
+    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `qling-insight-${report.generatedAt.slice(0, 10)}.json`
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -51,6 +79,7 @@ export function App() {
               导入评论 CSV
               <input type="file" accept=".csv,text/csv" onChange={(event) => void handleCsvFile(event.target.files?.[0])} />
             </label>
+            <button className="export-button" type="button" onClick={exportReport}>导出证据报告</button>
             <span className="source-note">当前：{sourceLabel}</span>
             {error && <p className="error" role="alert">{error}</p>}
           </section>
@@ -103,6 +132,27 @@ export function App() {
               </div>
             ))}
             <small>信息辅助，不构成法律意见；所有风险需人工复核。</small>
+          </article>
+        </div>
+
+        <div className="grid two auxiliary">
+          <article className="panel competitor-panel">
+            <span className="number">04</span><h3>竞品快照</h3>
+            <div className="snapshot-summary"><div><small>价格中位数</small><strong>${competitors.medianPrice}</strong></div><div><small>评分中位数</small><strong>{competitors.medianRating}</strong></div></div>
+            <div className="competitor-list">
+              {competitors.products.map((product) => <div key={product.productId}><span><strong>{product.brand}</strong><small>{product.title}</small></span><b>${product.price}</b></div>)}
+            </div>
+            <small>快照时间 {competitors.capturedAt}；当前为本地演示数据，不代表实时市场。</small>
+          </article>
+
+          <article className="panel pricing-panel">
+            <span className="number">05</span><h3>定价情景</h3>
+            <div className="pricing-inputs">
+              <label>售价（USD）<input aria-label="售价" type="number" min="0.01" step="0.01" value={price} onChange={(event) => setPrice(Math.max(0.01, Number(event.target.value)))} /></label>
+              <label>到岸成本（USD）<input aria-label="到岸成本" type="number" min="0" step="0.01" value={landedCost} onChange={(event) => setLandedCost(Math.max(0, Number(event.target.value)))} /></label>
+            </div>
+            {pricing ? <div className="pricing-result"><div><small>单件贡献</small><strong>${pricing.contributionPerUnit}</strong></div><div><small>贡献率</small><strong>{(pricing.contributionMarginRate * 100).toFixed(2)}%</strong></div><div><small>保本销量</small><strong>{pricing.breakEvenUnits} 件</strong></div></div> : <p className="scenario-error" role="status">当前售价不足以覆盖成本和费率，请调整参数。</p>}
+            <small>假设：平台费 15%、广告费 12%、固定启动成本 $2,500；仅为情景计算，不预测真实销量。</small>
           </article>
         </div>
       </section>
