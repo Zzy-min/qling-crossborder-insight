@@ -45,7 +45,7 @@ test('configured proxy enables AI analysis with evidence binding', async ({ page
         const dataset = JSON.parse(String(init?.body))
         const content = JSON.stringify({
           themes: [{ id: 'ai-thermal', label: 'AI 识别：高负载热管理', sentiment: 'negative', reviewIds: [dataset.reviews[0].reviewId] }],
-          complianceRisks: [{ id: 'ai-fcc', label: 'AI 识别：FCC 宣传措辞', severity: 'medium', policyIds: [dataset.policies[0].policyId] }],
+      complianceRisks: [{ id: 'ai-fcc', label: 'AI 识别：FCC 宣传措辞', severity: 'medium', policyIds: [dataset.policies[0].policyId] }],
         })
         return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 })
       }

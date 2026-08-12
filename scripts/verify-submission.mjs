@@ -25,5 +25,6 @@ try {
 } finally {
   await zip.close()
 }
-if (count !== 10) throw new Error(`Unexpected ZIP entry count: ${count}`)
+const expectedZipEntries = manifest.files.length + 1
+if (count !== expectedZipEntries) throw new Error(`Unexpected ZIP entry count: ${count}; expected ${expectedZipEntries}`)
 console.log(JSON.stringify({ verifiedFiles: manifest.files.length, zipEntries: count, status: manifest.status }, null, 2))

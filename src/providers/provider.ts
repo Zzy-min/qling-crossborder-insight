@@ -59,7 +59,11 @@ function materializeModelOutput(content: string, dataset: DatasetBundle): Provid
   }
   return {
     themes: parsed.themes.map(({ reviewIds, ...theme }) => ({ ...theme, mentions: reviewIds.length, evidence: reviewIds.map(reviewEvidence) })),
-    complianceRisks: parsed.complianceRisks.map(({ policyIds, ...risk }) => ({ ...risk, evidence: policyIds.map(policyEvidence), humanReviewRequired: true as const })),
+    complianceRisks: parsed.complianceRisks.map(({ policyIds, ...risk }) => {
+      const evidence = policyIds.map(policyEvidence)
+      const policy = policyMap.get(policyIds[0])!
+      return { ...risk, market: policy.market, evidence, humanReviewRequired: true as const }
+    }),
   }
 }
 

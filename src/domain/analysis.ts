@@ -44,6 +44,7 @@ export function extractThemes(dataset: DatasetBundle): ReviewTheme[] {
 export function extractComplianceRisks(dataset: DatasetBundle): ComplianceRisk[] {
   return dataset.policies.map((policy) => ({
     id: policy.policyId,
+    market: policy.market,
     label: `${policy.authority} · ${policy.topic}`,
     severity: 'medium',
     evidence: [{
@@ -79,7 +80,7 @@ export function buildInsightReportFromAnalysis(
     improvementSpace: themes.length > 0 ? 78 : 30,
     competitionAndMargin: 64,
     dataConfidence: dataset.reviews.length === 0 ? 0 : Math.round(verifiedReviews / dataset.reviews.length * 100),
-    compliancePenalty: complianceRisks.length * 20,
+    compliancePenalty: Math.min(100, complianceRisks.length * 20),
   }
   const opportunityScore = calculateOpportunityScore(breakdown)
 

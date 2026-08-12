@@ -32,8 +32,8 @@ describe('buildInsightReport', () => {
     expect(report.themes.every((theme) => theme.evidence.length > 0)).toBe(true)
     expect(report.complianceRisks.length).toBeGreaterThan(0)
     expect(report.complianceRisks.every((risk) => risk.evidence.length > 0)).toBe(true)
+    expect(report.complianceRisks.map((risk) => risk.market)).toEqual(['US', 'EU'])
     expect(report.generatedAt).toBe('2026-08-12T00:00:00.000Z')
     expect(report.providerMode).toBe('fixture')
   })
 })
-

@@ -84,5 +84,14 @@ export const sampleDataset: DatasetBundle = {
       summary: 'Marketing material should not imply FCC approval when the applicable process is authorization or compliance.',
       sourceUrl: 'https://www.fcc.gov/oet/ea/rfdevice',
     },
+    {
+      policyId: 'eu-common-charger-scope',
+      market: 'EU',
+      authority: 'European Commission',
+      topic: 'common-charger-scope-and-usb-pd',
+      effectiveAt: '2024-12-28',
+      summary: 'The EU common-charger rules apply to specified categories of radio equipment. Verify whether the marketed product and bundled or unbundled charger fall within the applicable scope, and verify USB-C and USB Power Delivery claims rather than assuming universal compliance.',
+      sourceUrl: 'https://single-market-economy.ec.europa.eu/sectors/electrical-and-electronic-engineering-industries-eei/radio-equipment-directive-red/one-common-charging-solution-all_en',
+    },
   ],
 }

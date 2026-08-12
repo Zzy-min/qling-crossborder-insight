@@ -59,6 +59,7 @@ export interface ScoreBreakdown {
 
 export interface ComplianceRisk {
   id: string
+  market: 'US' | 'EU'
   label: string
   severity: 'low' | 'medium' | 'high'
   evidence: EvidenceRef[]

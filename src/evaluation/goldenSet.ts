@@ -46,7 +46,7 @@ export function createGoldenCases(count = 200): GoldenCase[] {
         }],
         policies: sampleDataset.policies.map((row) => ({ ...row })),
       },
-      expected: { themeIds: [...template.themes], riskIds: ['us-fcc-label'] },
+      expected: { themeIds: [...template.themes], riskIds: ['us-fcc-label', 'eu-common-charger-scope'] },
     }
   })
 }

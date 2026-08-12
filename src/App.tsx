@@ -164,7 +164,7 @@ export function App() {
             <span className="number">03</span><h3>合规预警</h3>
             {report.complianceRisks.map((risk) => (
               <div className="risk" key={risk.id}>
-                <span>{risk.severity.toUpperCase()}</span>
+                <span>{risk.market} · {risk.severity.toUpperCase()}</span>
                 <strong>{risk.label}</strong>
                 <p>{risk.evidence[0]?.excerpt}</p>
                 <EvidenceSource sourceUrl={risk.evidence[0]?.sourceUrl ?? 'fixture:missing'} />

@@ -14,7 +14,7 @@ describe('golden evaluation gate', () => {
     ])
     const result = evaluateReport(report, {
       themeIds: ['thermal', 'port-reset'],
-      riskIds: ['us-fcc-label'],
+      riskIds: ['us-fcc-label', 'eu-common-charger-scope'],
     }, knownIds)
 
     expect(result).toEqual({

@@ -51,6 +51,7 @@ const materialFiles = [
   'docs/submission/submission-evidence.md',
   'docs/hackathon-build/architecture.md',
   'docs/hackathon-build/acceptance.md',
+  'docs/research/policy-sources.md',
   'public/samples/reviews-template.csv',
 ]
 const generatedFiles = [
