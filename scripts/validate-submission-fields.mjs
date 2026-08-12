@@ -14,6 +14,10 @@ const attachmentPath = resolve(import.meta.dirname, '..', form.fields.attachment
 const attachment = await stat(attachmentPath)
 const attachmentExtension = extname(attachmentPath).slice(1).toLowerCase()
 const attachmentValid = attachment.size <= limits.attachmentMaxBytes && limits.attachmentExtensions.includes(attachmentExtension)
+const submitted = form.status === 'submitted'
+const submissionEvidenceValid = submitted
+  ? Boolean(form.submittedAt && form.submissionEvidence?.resultUrl && form.submissionEvidence?.resultMessage)
+  : true
 const result = {
   status: form.status,
   deadline: form.deadline,
@@ -25,7 +29,11 @@ const result = {
   unverifiedLimits: form.unverifiedLimits,
   readyForFinalFormCheck: missing.length === 0 && exceeded.length === 0 && attachmentValid,
   readyToSubmit: false,
-  reason: 'All known form constraints pass, but the authenticated form must be updated with this draft and external submission requires fresh confirmation.',
+  alreadySubmitted: submitted,
+  submissionEvidenceValid,
+  reason: submitted
+    ? 'The form was submitted and the authoritative success response is recorded; do not submit a duplicate entry.'
+    : 'All known form constraints pass, but the authenticated form must be updated with this draft and external submission requires fresh confirmation.',
 }
 console.log(JSON.stringify(result, null, 2))
-if (missing.length > 0 || exceeded.length > 0 || !attachmentValid || form.status !== 'draft-not-submitted') process.exitCode = 1
+if (missing.length > 0 || exceeded.length > 0 || !attachmentValid || !['draft-not-submitted', 'submitted'].includes(form.status) || !submissionEvidenceValid) process.exitCode = 1

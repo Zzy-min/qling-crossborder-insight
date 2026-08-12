@@ -1,6 +1,16 @@
 # 初赛提交证据清单
 
-当前状态：未提交。
+当前状态：已提交。
+
+- 提交时间：2026-08-12 17:58:01（Asia/Shanghai）
+- 团队名称：轻灵
+- 命题场景：AI市场洞察
+- 方案名称：Qling 出海智察
+- 附件：`qling-preliminary-materials.zip`（页面显示 362.94 KB）
+- 代码仓库：<https://github.com/Zzy-min/qling-crossborder-insight>
+- 结果页：<https://marketing.csdn.net/questions/defaultPage/Q2607081206113789889>
+- 官网回执：`提交成功，感谢您的参与～`
+- 本地截图：`artifacts/submission/csdn-submission-success.png`（产物目录不提交到 Git）
 
 本地草稿材料通过 `npm run prepare:submission` 生成到 `artifacts/submission/`：包含 3 张已渲染截图、8 份材料/样例、SHA-256 清单和 ZIP。生成成功不代表官网已提交。
 
@@ -17,7 +27,9 @@
 
 提交后留存：
 
-- 提交结果页完整截图。
-- 项目/方案 ID 或可访问链接。
-- 提交时间（Asia/Shanghai）。
-- 再次进入赛事后台，确认状态为已提交而不是仅已报名。
+- [x] 提交结果页截图。
+- [x] 可访问结果页链接。
+- [x] 提交时间（Asia/Shanghai）。
+- [x] 官网明确显示“提交成功”，不是仅完成报名。
+
+注意：当前表单的重复提交会新增记录，不应为“验证”而再次提交。

@@ -1,6 +1,12 @@
 {
-  "status": "draft-not-submitted",
+  "status": "submitted",
   "verifiedAt": "2026-08-12T11:38:00+08:00",
+  "submittedAt": "2026-08-12T17:58:01+08:00",
+  "submissionEvidence": {
+    "resultUrl": "https://marketing.csdn.net/questions/defaultPage/Q2607081206113789889",
+    "resultMessage": "提交成功，感谢您的参与～",
+    "screenshot": "artifacts/submission/csdn-submission-success.png"
+  },
   "officialGuide": "https://img-bss.csdnimg.cn/bss/aikj/ai-hackathon-guide.html",
   "submissionUrl": "https://marketing.csdn.net/questions/Q2607081206113789889?pId=3339",
   "deadline": "2026-08-20",
@@ -23,9 +29,10 @@
     "repositoryUrl": "https://github.com/Zzy-min/qling-crossborder-insight"
   },
   "unverifiedLimits": [],
-  "requiredBeforeSubmit": [
-    "在官网用本文件替换现存的过度承诺草稿",
+  "completedSubmissionChecks": [
+    "官网字段已替换为本文件中的可信版本",
     "仓库链接使用已授权创建并公开的 GitHub 仓库",
-    "展示最终字段并获得新的明确提交确认"
+    "已展示最终字段并获得明确提交授权",
+    "官网返回提交成功回执"
   ]
 }
