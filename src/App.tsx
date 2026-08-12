@@ -80,6 +80,7 @@ export function App() {
               <input type="file" accept=".csv,text/csv" onChange={(event) => void handleCsvFile(event.target.files?.[0])} />
             </label>
             <button className="export-button" type="button" onClick={exportReport}>导出证据报告</button>
+            <a className="template-link" href="./samples/reviews-template.csv" download>下载 CSV 模板</a>
             <span className="source-note">当前：{sourceLabel}</span>
             {error && <p className="error" role="alert">{error}</p>}
           </section>

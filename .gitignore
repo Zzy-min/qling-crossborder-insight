@@ -3,6 +3,8 @@ dist/
 release/
 release-verify/
 coverage/
+test-results/
+playwright-report/
 .env
 .env.*
 !.env.example

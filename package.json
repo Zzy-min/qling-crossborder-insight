@@ -12,10 +12,12 @@
     "build:desktop": "npm run build && electron-builder --dir",
     "desktop": "npm run build && electron electron/main.mjs",
     "eval": "vitest run src/evaluation",
+    "test:e2e": "playwright test",
     "test:server": "node --test server/*.test.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run test && npm run test:server && npm run build"
+    "check": "npm run test && npm run test:server && npm run build",
+    "check:all": "npm run check && npm run test:e2e"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",
@@ -29,6 +31,7 @@
   "devDependencies": {
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "@playwright/test": "^1.54.0",
     "electron": "^37.2.0",
     "electron-builder": "^26.0.12"
   },

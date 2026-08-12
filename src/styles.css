@@ -31,6 +31,7 @@ h1 em { color: #c9ff66; font-style: normal; }
 .hero-copy { color: #b9c3bd; max-width: 650px; font-size: 18px; line-height: 1.7; }
 .upload-button { display: inline-block; margin-top: 20px; padding: 14px 22px; border-radius: 4px; color: #172018; background: #c9ff66; font-weight: 800; cursor: pointer; }
 .export-button { margin: 20px 0 0 10px; padding: 13px 20px; border: 1px solid rgba(201,255,102,.55); border-radius: 4px; color: #dfffa7; background: transparent; font-weight: 750; cursor: pointer; }
+.template-link { display: inline-block; margin-left: 14px; color: #c4d0c8; font-size: 13px; text-underline-offset: 4px; }
 .upload-button input { display: none; }
 .source-note { display: inline-block; margin-left: 14px; color: #9caaa2; font-size: 13px; }
 .error { color: #ff9c89; }
@@ -96,4 +97,5 @@ h1 em { color: #c9ff66; font-style: normal; }
   .section-heading h2 { font-size: 26px; }
   .pricing-inputs, .pricing-result { grid-template-columns: 1fr; }
   .export-button { display: block; margin-left: 0; }
+  .template-link { margin: 14px 0 0; }
 }

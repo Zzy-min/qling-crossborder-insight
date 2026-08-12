@@ -13,16 +13,19 @@ npm run dev
 
 ```powershell
 npm run check
+npm run test:e2e
 ```
 
 当前只使用明确标注的离线样例，不需要 API Key。
+
+页面提供可下载的 `reviews-template.csv`；端到端门禁覆盖 CSV 导入、隐私字段拒绝、定价变化、证据报告下载与手机端横向溢出。
 
 ## 可选百炼代理
 
 百炼密钥只配置在本地服务端环境变量 `BAILIAN_API_KEY`，不得写入前端或提交到 Git。未配置时 `/api/analyze` 明确返回 503，离线样例仍可正常使用。
 
 ```powershell
-$env:BAILIAN_API_KEY='在本机设置，不要写入文件'
+# 先在当前 PowerShell 会话中设置 BAILIAN_API_KEY，不要写入文件
 npm run dev:api
 ```
 

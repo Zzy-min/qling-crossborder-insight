@@ -1,0 +1,4 @@
+reviewId,productId,locale,rating,title,body,reviewedAt,verifiedPurchase,sourceUrl
+demo-hot-1,gan-65w-a,en-US,2,Runs hot,"The charger gets hot under laptop load.",2026-07-20,true,fixture:csv/demo-hot-1
+demo-reset-1,gan-65w-a,en-US,2,Port reset,"Connecting a second device causes a brief reset.",2026-07-18,true,fixture:csv/demo-reset-1
+demo-positive-1,gan-65w-a,en-US,5,Compact,"Small enough for travel and charges quickly.",2026-07-10,true,fixture:csv/demo-positive-1
