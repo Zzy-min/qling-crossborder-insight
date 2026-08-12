@@ -43,6 +43,67 @@ const modelOutputSchema = z.object({
   })),
 })
 
+function materializeModelOutput(content: string, dataset: DatasetBundle): ProviderAnalysis {
+  const parsed = modelOutputSchema.parse(JSON.parse(content))
+  const reviewMap = new Map(dataset.reviews.map((row) => [row.reviewId, row]))
+  const policyMap = new Map(dataset.policies.map((row) => [row.policyId, row]))
+  const reviewEvidence = (id: string): EvidenceRef => {
+    const row = reviewMap.get(id)
+    if (!row) throw new Error(`Model cited unknown review ID: ${id}`)
+    return { sourceUrl: row.sourceUrl, capturedAt: row.reviewedAt, excerpt: `${row.title}: ${row.body}`, recordId: id, evidenceType: 'review' }
+  }
+  const policyEvidence = (id: string): EvidenceRef => {
+    const row = policyMap.get(id)
+    if (!row) throw new Error(`Model cited unknown policy ID: ${id}`)
+    return { sourceUrl: row.sourceUrl, capturedAt: row.effectiveAt, excerpt: row.summary, recordId: id, evidenceType: 'policy' }
+  }
+  return {
+    themes: parsed.themes.map(({ reviewIds, ...theme }) => ({ ...theme, mentions: reviewIds.length, evidence: reviewIds.map(reviewEvidence) })),
+    complianceRisks: parsed.complianceRisks.map(({ policyIds, ...risk }) => ({ ...risk, evidence: policyIds.map(policyEvidence), humanReviewRequired: true as const })),
+  }
+}
+
+function modelContent(envelope: unknown): string {
+  const parsed = z.object({ choices: z.array(z.object({ message: z.object({ content: z.string().min(1) }) })).min(1) }).parse(envelope)
+  return parsed.choices[0].message.content
+}
+
+export interface ProxyProviderOptions {
+  baseUrl?: string
+  fetcher?: typeof fetch
+}
+
+export class ProxyProvider implements AnalysisProvider {
+  readonly mode = 'bailian' as const
+  private readonly fetcher: typeof fetch
+  private readonly baseUrl: string
+
+  constructor(options: ProxyProviderOptions = {}) {
+    this.fetcher = options.fetcher ?? fetch
+    this.baseUrl = (options.baseUrl ?? '').replace(/\/$/, '')
+  }
+
+  async isConfigured(): Promise<boolean> {
+    try {
+      const response = await this.fetcher(`${this.baseUrl}/health`, { headers: { Accept: 'application/json' } })
+      if (!response.ok) return false
+      return z.object({ providerConfigured: z.boolean() }).parse(await response.json()).providerConfigured
+    } catch {
+      return false
+    }
+  }
+
+  async analyze(dataset: DatasetBundle): Promise<ProviderAnalysis> {
+    const response = await this.fetcher(`${this.baseUrl}/api/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dataset),
+    })
+    if (!response.ok) throw new Error(`AI proxy request failed: HTTP ${response.status}`)
+    return materializeModelOutput(modelContent(await response.json()), dataset)
+  }
+}
+
 export interface BailianProviderOptions {
   apiKey: string
   endpoint?: string
@@ -80,27 +141,6 @@ export class BailianProvider implements AnalysisProvider {
       }),
     })
     if (!response.ok) throw new Error(`Bailian request failed: HTTP ${response.status}`)
-    const envelope = await response.json() as { choices?: Array<{ message?: { content?: string } }> }
-    const content = envelope.choices?.[0]?.message?.content
-    if (!content) throw new Error('Bailian response did not contain model output')
-
-    const parsed = modelOutputSchema.parse(JSON.parse(content))
-    const reviewMap = new Map(dataset.reviews.map((row) => [row.reviewId, row]))
-    const policyMap = new Map(dataset.policies.map((row) => [row.policyId, row]))
-    const reviewEvidence = (id: string): EvidenceRef => {
-      const row = reviewMap.get(id)
-      if (!row) throw new Error(`Model cited unknown review ID: ${id}`)
-      return { sourceUrl: row.sourceUrl, capturedAt: row.reviewedAt, excerpt: `${row.title}: ${row.body}`, recordId: id, evidenceType: 'review' }
-    }
-    const policyEvidence = (id: string): EvidenceRef => {
-      const row = policyMap.get(id)
-      if (!row) throw new Error(`Model cited unknown policy ID: ${id}`)
-      return { sourceUrl: row.sourceUrl, capturedAt: row.effectiveAt, excerpt: row.summary, recordId: id, evidenceType: 'policy' }
-    }
-
-    return {
-      themes: parsed.themes.map(({ reviewIds, ...theme }) => ({ ...theme, mentions: reviewIds.length, evidence: reviewIds.map(reviewEvidence) })),
-      complianceRisks: parsed.complianceRisks.map(({ policyIds, ...risk }) => ({ ...risk, evidence: policyIds.map(policyEvidence), humanReviewRequired: true as const })),
-    }
+    return materializeModelOutput(modelContent(await response.json()), dataset)
   }
 }

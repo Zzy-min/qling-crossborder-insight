@@ -27,6 +27,8 @@ npm run eval
 
 百炼密钥只配置在本地服务端环境变量 `BAILIAN_API_KEY`，不得写入前端或提交到 Git。未配置时 `/api/analyze` 明确返回 503，离线样例仍可正常使用。
 
+Web 页面会检测本机代理是否已配置。只有检测成功后“运行百炼增强”按钮才可用；调用失败或模型证据无效时会自动回退到本地确定性报告。
+
 ```powershell
 # 先在当前 PowerShell 会话中设置 BAILIAN_API_KEY，不要写入文件
 npm run dev:api

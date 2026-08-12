@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
-import { buildInsightReport } from './domain/analysis'
+import { useEffect, useMemo, useState } from 'react'
+import { buildInsightReport, buildInsightReportFromAnalysis } from './domain/analysis'
 import { parseReviewCsv } from './domain/csv'
-import type { DatasetBundle } from './domain/types'
+import type { DatasetBundle, InsightReport } from './domain/types'
 import { buildCompetitorSnapshot, simulatePricing } from './domain/market'
 import { sampleDataset } from './fixtures/usbCChargers'
+import { ProxyProvider } from './providers/provider'
 
 const scoreLabels = {
   painIntensity: '痛点强度',
@@ -22,7 +23,11 @@ export function App() {
   const [dataset, setDataset] = useState<DatasetBundle>(sampleDataset)
   const [sourceLabel, setSourceLabel] = useState('内置公开演示样例')
   const [error, setError] = useState('')
-  const report = useMemo(() => buildInsightReport(dataset), [dataset])
+  const fixtureReport = useMemo(() => buildInsightReport(dataset), [dataset])
+  const [report, setReport] = useState<InsightReport>(fixtureReport)
+  const [aiConfigured, setAiConfigured] = useState(false)
+  const [aiStatus, setAiStatus] = useState<'checking' | 'offline' | 'ready' | 'running' | 'fallback'>('checking')
+  const proxyProvider = useMemo(() => new ProxyProvider({ baseUrl: import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8787' }), [])
   const competitors = useMemo(() => buildCompetitorSnapshot(dataset.products), [dataset.products])
   const [price, setPrice] = useState(39.99)
   const [landedCost, setLandedCost] = useState(18)
@@ -34,6 +39,21 @@ export function App() {
     }
   }, [price, landedCost])
 
+  useEffect(() => {
+    setReport(fixtureReport)
+    setAiStatus(aiConfigured ? 'ready' : 'offline')
+  }, [fixtureReport, aiConfigured])
+
+  useEffect(() => {
+    let active = true
+    void proxyProvider.isConfigured().then((configured) => {
+      if (!active) return
+      setAiConfigured(configured)
+      setAiStatus(configured ? 'ready' : 'offline')
+    })
+    return () => { active = false }
+  }, [proxyProvider])
+
   async function handleCsvFile(file: File | undefined) {
     if (!file) return
     try {
@@ -43,6 +63,20 @@ export function App() {
       setError('')
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'CSV 解析失败')
+    }
+  }
+
+  async function runAiAnalysis() {
+    setAiStatus('running')
+    setError('')
+    try {
+      const analysis = await proxyProvider.analyze(dataset)
+      setReport(buildInsightReportFromAnalysis(dataset, analysis, proxyProvider.mode))
+      setAiStatus('ready')
+    } catch {
+      setReport(fixtureReport)
+      setAiStatus('fallback')
+      setError('AI 增强暂不可用，已安全回退到本地确定性分析。')
     }
   }
 
@@ -68,7 +102,7 @@ export function App() {
       <header className="hero">
         <nav>
           <div className="brand"><span>QL</span> Qling 出海智察</div>
-          <div className="prototype-pill">FIXTURE 原型 · 数据不上传</div>
+          <div className="prototype-pill">{report.providerMode === 'bailian' ? '百炼增强 · 证据约束' : 'FIXTURE 原型 · 数据不上传'}</div>
         </nav>
         <div className="hero-grid">
           <section>
@@ -81,6 +115,10 @@ export function App() {
             </label>
             <button className="export-button" type="button" onClick={exportReport}>导出证据报告</button>
             <a className="template-link" href="./samples/reviews-template.csv" download>下载 CSV 模板</a>
+            <div className="ai-control">
+              <button type="button" disabled={!aiConfigured || aiStatus === 'running'} onClick={() => void runAiAnalysis()}>{aiStatus === 'running' ? 'AI 分析中…' : '运行百炼增强'}</button>
+              <span className={`ai-state ${aiStatus}`}>{aiStatus === 'checking' ? '正在检测本地代理' : aiStatus === 'ready' ? '服务端已配置' : aiStatus === 'fallback' ? '已回退本地分析' : '未配置，保持离线模式'}</span>
+            </div>
             <span className="source-note">当前：{sourceLabel}</span>
             {error && <p className="error" role="alert">{error}</p>}
           </section>

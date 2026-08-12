@@ -34,3 +34,28 @@ test('mobile layout has no horizontal overflow', async ({ page }) => {
   const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }))
   expect(widths.scroll).toBe(widths.client)
 })
+
+test('configured proxy enables AI analysis with evidence binding', async ({ page }) => {
+  await page.addInitScript(() => {
+    const originalFetch = window.fetch.bind(window)
+    window.fetch = async (input, init) => {
+      const url = String(input)
+      if (url.endsWith('/health')) return new Response(JSON.stringify({ ok: true, providerConfigured: true }), { status: 200 })
+      if (url.endsWith('/api/analyze')) {
+        const dataset = JSON.parse(String(init?.body))
+        const content = JSON.stringify({
+          themes: [{ id: 'ai-thermal', label: 'AI 识别：高负载热管理', sentiment: 'negative', reviewIds: [dataset.reviews[0].reviewId] }],
+          complianceRisks: [{ id: 'ai-fcc', label: 'AI 识别：FCC 宣传措辞', severity: 'medium', policyIds: [dataset.policies[0].policyId] }],
+        })
+        return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 })
+      }
+      return originalFetch(input, init)
+    }
+  })
+  await page.goto('/')
+  await expect(page.getByText('服务端已配置')).toBeVisible()
+  await page.getByRole('button', { name: '运行百炼增强' }).click()
+  await expect(page.getByText('AI 识别：高负载热管理')).toBeVisible()
+  await expect(page.getByText('AI 识别：FCC 宣传措辞')).toBeVisible()
+  await expect(page.getByText('百炼增强 · 证据约束')).toBeVisible()
+})

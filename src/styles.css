@@ -32,6 +32,12 @@ h1 em { color: #c9ff66; font-style: normal; }
 .upload-button { display: inline-block; margin-top: 20px; padding: 14px 22px; border-radius: 4px; color: #172018; background: #c9ff66; font-weight: 800; cursor: pointer; }
 .export-button { margin: 20px 0 0 10px; padding: 13px 20px; border: 1px solid rgba(201,255,102,.55); border-radius: 4px; color: #dfffa7; background: transparent; font-weight: 750; cursor: pointer; }
 .template-link { display: inline-block; margin-left: 14px; color: #c4d0c8; font-size: 13px; text-underline-offset: 4px; }
+.ai-control { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
+.ai-control button { padding: 10px 14px; border: 1px solid #66806e; border-radius: 4px; color: #e7eee9; background: rgba(255,255,255,.04); cursor: pointer; }
+.ai-control button:disabled { color: #7d8b83; cursor: not-allowed; }
+.ai-state { color: #9daaa2; font-size: 12px; }
+.ai-state.ready { color: #c9ff66; }
+.ai-state.fallback { color: #ffc599; }
 .upload-button input { display: none; }
 .source-note { display: inline-block; margin-left: 14px; color: #9caaa2; font-size: 13px; }
 .error { color: #ff9c89; }

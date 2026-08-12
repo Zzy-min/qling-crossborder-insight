@@ -48,3 +48,12 @@ test('rejects cross-site browser requests before using the provider key', async 
   assert.equal(response.status, 403)
   assert.equal(called, false)
 })
+
+test('allows CORS preflight only from a loopback web app', async () => {
+  const base = await start({ apiKey: 'server-secret' })
+  const allowed = await fetch(`${base}/api/analyze`, { method: 'OPTIONS', headers: { Origin: 'http://127.0.0.1:5181' } })
+  assert.equal(allowed.status, 204)
+  assert.equal(allowed.headers.get('access-control-allow-origin'), 'http://127.0.0.1:5181')
+  const denied = await fetch(`${base}/api/analyze`, { method: 'OPTIONS', headers: { Origin: 'https://attacker.example' } })
+  assert.equal(denied.status, 403)
+})

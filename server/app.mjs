@@ -4,8 +4,24 @@ const MAX_BODY_BYTES = 1_000_000
 
 export function createApiServer({ apiKey, fetcher = fetch, endpoint = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions' }) {
   return createServer(async (request, response) => {
+    const origin = request.headers.origin
+    const localOrigin = origin && /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin)
+    if (localOrigin) {
+      response.setHeader('Access-Control-Allow-Origin', origin)
+      response.setHeader('Vary', 'Origin')
+    }
     response.setHeader('Content-Type', 'application/json; charset=utf-8')
     response.setHeader('Cache-Control', 'no-store')
+    if (request.method === 'OPTIONS') {
+      if (!localOrigin) {
+        response.writeHead(403).end(JSON.stringify({ error: 'origin_not_allowed' }))
+        return
+      }
+      response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+      response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept')
+      response.writeHead(204).end()
+      return
+    }
     if (request.method === 'GET' && request.url === '/health') {
       response.end(JSON.stringify({ ok: true, providerConfigured: Boolean(apiKey) }))
       return
@@ -18,8 +34,7 @@ export function createApiServer({ apiKey, fetcher = fetch, endpoint = 'https://d
       response.writeHead(503).end(JSON.stringify({ error: 'provider_not_configured' }))
       return
     }
-    const origin = request.headers.origin
-    if (origin && !/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin)) {
+    if (origin && !localOrigin) {
       response.writeHead(403).end(JSON.stringify({ error: 'origin_not_allowed' }))
       return
     }
