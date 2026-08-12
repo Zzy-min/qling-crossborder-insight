@@ -52,21 +52,30 @@ export function createApiServer({ apiKey, fetcher = fetch, endpoint = 'https://d
         chunks.push(chunk)
       }
       const dataset = validateDataset(JSON.parse(Buffer.concat(chunks).toString('utf8')))
-      const upstream = await fetcher(endpoint, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: process.env.BAILIAN_MODEL || 'qwen-plus',
-          response_format: { type: 'json_object' },
-          messages: [
-            { role: 'system', content: 'Return JSON only. Cite only reviewIds and policyIds supplied by the user.' },
-            { role: 'user', content: JSON.stringify(dataset) },
-          ],
-        }),
-        signal: AbortSignal.timeout(20_000),
-      })
-      const body = await upstream.text()
-      response.writeHead(upstream.status).end(body)
+      try {
+        const upstream = await fetcher(endpoint, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: process.env.BAILIAN_MODEL || 'qwen-plus',
+            response_format: { type: 'json_object' },
+            messages: [
+              { role: 'system', content: 'Return JSON only. Cite only reviewIds and policyIds supplied by the user.' },
+              { role: 'user', content: JSON.stringify(dataset) },
+            ],
+          }),
+          signal: AbortSignal.timeout(20_000),
+        })
+        if (!upstream.ok) {
+          response.writeHead(502).end(JSON.stringify({ error: 'provider_error', upstreamStatus: upstream.status }))
+          return
+        }
+        const body = await upstream.text()
+        response.writeHead(200).end(body)
+      } catch (error) {
+        const timeout = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')
+        response.writeHead(timeout ? 504 : 502).end(JSON.stringify({ error: timeout ? 'provider_timeout' : 'provider_unavailable' }))
+      }
     } catch (error) {
       const tooLarge = error instanceof Error && error.message === 'payload_too_large'
       response.writeHead(tooLarge ? 413 : 400).end(JSON.stringify({ error: tooLarge ? 'payload_too_large' : 'invalid_request' }))

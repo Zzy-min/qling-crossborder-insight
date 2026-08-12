@@ -89,3 +89,27 @@ test('allows CORS preflight only from a loopback web app', async () => {
   const denied = await fetch(`${base}/api/analyze`, { method: 'OPTIONS', headers: { Origin: 'https://attacker.example' } })
   assert.equal(denied.status, 403)
 })
+
+test('maps upstream HTTP errors without forwarding provider details', async () => {
+  const fetcher = async () => new Response('{"message":"provider secret detail"}', { status: 429 })
+  const base = await start({ apiKey: 'server-secret', fetcher })
+  const response = await fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"products":[],"reviews":[],"policies":[]}' })
+  assert.equal(response.status, 502)
+  assert.deepEqual(await response.json(), { error: 'provider_error', upstreamStatus: 429 })
+})
+
+test('maps upstream timeouts to 504', async () => {
+  const fetcher = async () => { throw new DOMException('timed out', 'TimeoutError') }
+  const base = await start({ apiKey: 'server-secret', fetcher })
+  const response = await fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"products":[],"reviews":[],"policies":[]}' })
+  assert.equal(response.status, 504)
+  assert.deepEqual(await response.json(), { error: 'provider_timeout' })
+})
+
+test('maps upstream network failures to 502', async () => {
+  const fetcher = async () => { throw new TypeError('connect ECONNRESET secret-host') }
+  const base = await start({ apiKey: 'server-secret', fetcher })
+  const response = await fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"products":[],"reviews":[],"policies":[]}' })
+  assert.equal(response.status, 502)
+  assert.deepEqual(await response.json(), { error: 'provider_unavailable' })
+})
