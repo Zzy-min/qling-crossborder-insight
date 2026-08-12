@@ -29,6 +29,11 @@ nav { display: flex; align-items: center; justify-content: space-between; }
 h1 { font-size: clamp(48px, 6vw, 84px); line-height: .98; letter-spacing: -.055em; margin: 20px 0 28px; max-width: 850px; }
 h1 em { color: #c9ff66; font-style: normal; }
 .hero-copy { color: #b9c3bd; max-width: 650px; font-size: 18px; line-height: 1.7; }
+.market-selector { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 0; padding: 0; border: 0; }
+.market-selector > span { width: 100%; color: #93a29b; font-size: 12px; font-weight: 800; }
+.market-selector button { padding: 8px 12px; border: 1px solid #52655a; border-radius: 99px; color: #c4d0c8; background: transparent; font-size: 13px; cursor: pointer; }
+.market-selector button[aria-pressed="true"] { color: #172018; background: #c9ff66; border-color: #c9ff66; }
+.market-selector button:focus-visible { outline: 2px solid #f4f4ed; outline-offset: 2px; }
 .upload-button { display: inline-block; margin-top: 20px; padding: 14px 22px; border-radius: 4px; color: #172018; background: #c9ff66; font-weight: 800; cursor: pointer; }
 .export-button { margin: 20px 0 0 10px; padding: 13px 20px; border: 1px solid rgba(201,255,102,.55); border-radius: 4px; color: #dfffa7; background: transparent; font-weight: 750; cursor: pointer; }
 .template-link { display: inline-block; margin-left: 14px; color: #c4d0c8; font-size: 13px; text-underline-offset: 4px; }
@@ -76,6 +81,8 @@ h1 em { color: #c9ff66; font-style: normal; }
 .snapshot-summary small, .pricing-result small, .competitor-list small { display: block; color: #6d7971; margin-bottom: 5px; }
 .snapshot-summary strong, .pricing-result strong { font-size: 24px; }
 .competitor-list { margin-bottom: 22px; }
+.market-snapshot + .market-snapshot { margin-top: 28px; padding-top: 20px; border-top: 2px solid #d8dfd6; }
+.market-snapshot h4 { margin: 0 0 14px; font-size: 14px; color: #4f5e55; }
 .competitor-list > div { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 13px 0; border-top: 1px solid #dfe3dc; }
 .competitor-list span { min-width: 0; }
 .competitor-list small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 430px; }

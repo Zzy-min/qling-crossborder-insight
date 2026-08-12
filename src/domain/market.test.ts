@@ -1,13 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import { buildCompetitorSnapshot, simulatePricing } from './market'
 import { sampleDataset } from '../fixtures/usbCChargers'
+import { scopeDataset } from './scope'
 
 describe('buildCompetitorSnapshot', () => {
   it('sorts competitors by price and calculates market medians', () => {
-    const snapshot = buildCompetitorSnapshot(sampleDataset.products)
+    const snapshot = buildCompetitorSnapshot(scopeDataset(sampleDataset, 'US').products)
     expect(snapshot.products.map((row) => row.price)).toEqual([29.99, 39.99, 49.99])
     expect(snapshot.medianPrice).toBe(39.99)
     expect(snapshot.medianRating).toBe(4.3)
+    expect(snapshot.currency).toBe('USD')
+  })
+
+  it('rejects mixed currencies instead of producing a misleading median', () => {
+    expect(() => buildCompetitorSnapshot([
+      sampleDataset.products[0],
+      { ...sampleDataset.products[0], productId: 'eu', market: 'EU', currency: 'EUR' },
+    ])).toThrow('one currency')
   })
 })
 

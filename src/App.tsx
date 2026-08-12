@@ -5,6 +5,7 @@ import type { DatasetBundle, InsightReport } from './domain/types'
 import { buildCompetitorSnapshot, simulatePricing } from './domain/market'
 import { sampleDataset } from './fixtures/usbCChargers'
 import { ProxyProvider } from './providers/provider'
+import { scopeDataset, type MarketScope } from './domain/scope'
 
 const scoreLabels = {
   painIntensity: '痛点强度',
@@ -21,14 +22,25 @@ function EvidenceSource({ sourceUrl }: { sourceUrl: string }) {
 
 export function App() {
   const [dataset, setDataset] = useState<DatasetBundle>(sampleDataset)
+  const [marketScope, setMarketScope] = useState<MarketScope>('BOTH')
   const [sourceLabel, setSourceLabel] = useState('内置公开演示样例')
   const [error, setError] = useState('')
-  const fixtureReport = useMemo(() => buildInsightReport(dataset), [dataset])
+  const scopedDataset = useMemo(() => scopeDataset(dataset, marketScope), [dataset, marketScope])
+  const fixtureReport = useMemo(() => buildInsightReport(scopedDataset), [scopedDataset])
   const [report, setReport] = useState<InsightReport>(fixtureReport)
   const [aiConfigured, setAiConfigured] = useState(false)
   const [aiStatus, setAiStatus] = useState<'checking' | 'offline' | 'ready' | 'running' | 'fallback'>('checking')
   const proxyProvider = useMemo(() => new ProxyProvider({ baseUrl: import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8787' }), [])
-  const competitors = useMemo(() => buildCompetitorSnapshot(dataset.products), [dataset.products])
+  const competitorSnapshots = useMemo(() => {
+    const groups = scopedDataset.products.reduce((result, product) => {
+      const group = result.get(product.currency) ?? []
+      group.push(product)
+      result.set(product.currency, group)
+      return result
+    }, new Map<string, typeof scopedDataset.products>())
+    return [...groups.values()].map(buildCompetitorSnapshot)
+  }, [scopedDataset.products])
+  const pricingCurrency = marketScope === 'EU' ? 'EUR' : 'USD'
   const [price, setPrice] = useState(39.99)
   const [landedCost, setLandedCost] = useState(18)
   const pricing = useMemo(() => {
@@ -70,8 +82,8 @@ export function App() {
     setAiStatus('running')
     setError('')
     try {
-      const analysis = await proxyProvider.analyze(dataset)
-      setReport(buildInsightReportFromAnalysis(dataset, analysis, proxyProvider.mode))
+      const analysis = await proxyProvider.analyze(scopedDataset)
+      setReport(buildInsightReportFromAnalysis(scopedDataset, analysis, proxyProvider.mode))
       setAiStatus('ready')
     } catch {
       setReport(fixtureReport)
@@ -84,8 +96,9 @@ export function App() {
     const payload = {
       schemaVersion: '1.0',
       sourceLabel,
+      marketScope,
       report,
-      competitorSnapshot: competitors,
+      competitorSnapshots,
       pricingScenario: pricing,
       disclaimer: '本报告为信息辅助，不构成法律、财务或销量预测。',
     }
@@ -109,6 +122,12 @@ export function App() {
             <p className="eyebrow">AI 市场洞察 / 欧美 USB-C 充电器</p>
             <h1>把分散信息，变成<br /><em>可追溯的进入决策</em></h1>
             <p className="hero-copy">评论痛点、机会评分与合规预警形成一个证据闭环。AI 负责理解，确定性规则负责把关。</p>
+            <div className="market-selector" role="group" aria-label="目标市场">
+              <span>目标市场</span>
+              {([['US', '美国'], ['EU', '欧盟'], ['BOTH', '美国 + 欧盟']] as const).map(([value, label]) => (
+                <button key={value} type="button" aria-pressed={marketScope === value} onClick={() => setMarketScope(value)}>{label}</button>
+              ))}
+            </div>
             <label className="upload-button">
               导入评论 CSV
               <input type="file" accept=".csv,text/csv" onChange={(event) => void handleCsvFile(event.target.files?.[0])} />
@@ -177,18 +196,22 @@ export function App() {
         <div className="grid two auxiliary">
           <article className="panel competitor-panel">
             <span className="number">04</span><h3>竞品快照</h3>
-            <div className="snapshot-summary"><div><small>价格中位数</small><strong>${competitors.medianPrice}</strong></div><div><small>评分中位数</small><strong>{competitors.medianRating}</strong></div></div>
-            <div className="competitor-list">
-              {competitors.products.map((product) => <div key={product.productId}><span><strong>{product.brand}</strong><small>{product.title}</small></span><b>${product.price}</b></div>)}
-            </div>
-            <small>快照时间 {competitors.capturedAt}；当前为本地演示数据，不代表实时市场。</small>
+            {competitorSnapshots.map((snapshot) => <div className="market-snapshot" key={snapshot.currency}>
+              <h4>{snapshot.currency === 'USD' ? '美国市场 · USD' : '欧盟市场 · EUR'}</h4>
+              <div className="snapshot-summary"><div><small>价格中位数</small><strong>{snapshot.currency === 'USD' ? '$' : '€'}{snapshot.medianPrice}</strong></div><div><small>评分中位数</small><strong>{snapshot.medianRating}</strong></div></div>
+              <div className="competitor-list">
+                {snapshot.products.map((product) => <div key={product.productId}><span><strong>{product.brand}</strong><small>{product.title}</small></span><b>{snapshot.currency === 'USD' ? '$' : '€'}{product.price}</b></div>)}
+              </div>
+              <small>快照时间 {snapshot.capturedAt}</small>
+            </div>)}
+            <small>当前为本地演示数据，不代表实时市场；不同币种不合并计算。</small>
           </article>
 
           <article className="panel pricing-panel">
             <span className="number">05</span><h3>定价情景</h3>
             <div className="pricing-inputs">
-              <label>售价（USD）<input aria-label="售价" type="number" min="0.01" step="0.01" value={price} onChange={(event) => setPrice(Math.max(0.01, Number(event.target.value)))} /></label>
-              <label>到岸成本（USD）<input aria-label="到岸成本" type="number" min="0" step="0.01" value={landedCost} onChange={(event) => setLandedCost(Math.max(0, Number(event.target.value)))} /></label>
+              <label>售价（{pricingCurrency}）<input aria-label="售价" type="number" min="0.01" step="0.01" value={price} onChange={(event) => setPrice(Math.max(0.01, Number(event.target.value)))} /></label>
+              <label>到岸成本（{pricingCurrency}）<input aria-label="到岸成本" type="number" min="0" step="0.01" value={landedCost} onChange={(event) => setLandedCost(Math.max(0, Number(event.target.value)))} /></label>
             </div>
             {pricing ? <div className="pricing-result"><div><small>单件贡献</small><strong>${pricing.contributionPerUnit}</strong></div><div><small>贡献率</small><strong>{(pricing.contributionMarginRate * 100).toFixed(2)}%</strong></div><div><small>保本销量</small><strong>{pricing.breakEvenUnits} 件</strong></div></div> : <p className="scenario-error" role="status">当前售价不足以覆盖成本和费率，请调整参数。</p>}
             <small>假设：平台费 15%、广告费 12%、固定启动成本 $2,500；仅为情景计算，不预测真实销量。</small>

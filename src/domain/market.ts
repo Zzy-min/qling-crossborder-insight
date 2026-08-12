@@ -2,6 +2,7 @@ import type { ProductRow } from './types'
 
 export interface CompetitorSnapshot {
   products: ProductRow[]
+  currency: ProductRow['currency']
   medianPrice: number
   medianRating: number
   capturedAt: string
@@ -30,8 +31,11 @@ function median(values: number[]): number {
 
 export function buildCompetitorSnapshot(products: ProductRow[]): CompetitorSnapshot {
   if (products.length === 0) throw new Error('At least one product is required')
+  const currencies = new Set(products.map((row) => row.currency))
+  if (currencies.size !== 1) throw new Error('Competitor snapshot requires one currency')
   return {
     products: [...products].sort((a, b) => a.price - b.price),
+    currency: products[0].currency,
     medianPrice: Number(median(products.map((row) => row.price)).toFixed(2)),
     medianRating: Number(median(products.map((row) => row.rating)).toFixed(2)),
     capturedAt: products.map((row) => row.capturedAt).sort().at(-1)!,
