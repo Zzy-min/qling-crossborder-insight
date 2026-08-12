@@ -16,7 +16,7 @@
     "review:prepare": "tsx scripts/prepare-human-review.ts",
     "review:audit": "node scripts/audit-human-review.mjs",
     "test:e2e": "playwright test",
-    "test:server": "node --test server/*.test.mjs",
+    "test:server": "node --test server/*.test.mjs scripts/*.node-test.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "npm run test && npm run test:server && npm run build",

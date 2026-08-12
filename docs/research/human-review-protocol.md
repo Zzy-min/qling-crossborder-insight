@@ -4,15 +4,15 @@
 
 ## 执行方式
 
-1. 运行 `npm run review:prepare`，只在复核文件不存在时生成 `artifacts/evaluation/human-review.json`，避免覆盖人工记录。
-2. 两名复核者使用不同的匿名稳定 ID，分别判断每例应出现的主题与风险；第二人不得先看第一人的备注。
-3. 两人一致时把 `resolution.status` 改为 `agreed`；不一致时讨论后改为 `resolved`，写明裁决依据和最终主题/风险 ID。
+1. 运行 `npm run review:prepare`，只在文件不存在时生成 `artifacts/evaluation/human-review/` 下的 `reviewerA.json`、`reviewerB.json` 和 `resolution.json`，避免覆盖人工记录。
+2. 分别把 A/B 文件交给两名复核者；两份盲评包均不包含机器期望或另一人的答案。复核者使用不同的匿名稳定 ID。
+3. 收回两份盲评后才打开裁决包。两人一致时把 `resolution.status` 改为 `agreed`；不一致时讨论后改为 `resolved`，写明裁决依据和最终主题/风险 ID。
 4. 每批完成后运行 `npm run review:audit`。部分填写、同一复核者重复签署或缺少争议说明都会阻止完成声明。
 5. 全部 200 例完成后，才能把 `humanReviewedCases` 更新为 200，并基于裁决结果重新计算最终评测。
 
 ## 隐私与质量边界
 
-- 只使用匿名复核者 ID，不记录姓名、邮箱、手机号或雇主。
+- 只使用匿名复核者 ID，不记录姓名、邮箱、手机号或雇主；审计器会递归检查直接身份字段。
 - 不改变原始评论文本来迎合当前模型结果。
 - `accept` 表示认可机器期望，`revise` 表示需要修订；任何修订都必须保留原因。
 - 当前模板基于机器构造样例，只验证规则一致性；真实用户评论外部效度仍需独立数据集。
