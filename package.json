@@ -11,13 +11,13 @@
     "build": "tsc -b && vite build",
     "build:desktop": "npm run build && electron-builder --dir",
     "desktop": "npm run build && electron electron/main.mjs",
-    "eval": "vitest run src/evaluation",
+    "eval": "tsx scripts/evaluate-golden.ts",
     "test:e2e": "playwright test",
     "test:server": "node --test server/*.test.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "npm run test && npm run test:server && npm run build",
-    "check:all": "npm run check && npm run test:e2e"
+    "check:all": "npm run check && npm run eval && npm run test:e2e"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",
@@ -33,7 +33,8 @@
     "@types/react-dom": "^19.1.0",
     "@playwright/test": "^1.54.0",
     "electron": "^37.2.0",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "tsx": "^4.20.0"
   },
   "main": "electron/main.mjs",
   "build": {

@@ -5,6 +5,7 @@ release-verify/
 coverage/
 test-results/
 playwright-report/
+artifacts/evaluation/golden-report.json
 .env
 .env.*
 !.env.example

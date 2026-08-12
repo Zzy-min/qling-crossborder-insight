@@ -14,11 +14,14 @@ npm run dev
 ```powershell
 npm run check
 npm run test:e2e
+npm run eval
 ```
 
 当前只使用明确标注的离线样例，不需要 API Key。
 
 页面提供可下载的 `reviews-template.csv`；端到端门禁覆盖 CSV 导入、隐私字段拒绝、定价变化、证据报告下载与手机端横向溢出。
+
+`npm run eval` 会评估 200 例机器播种样例并生成本地 JSON 报告。机器播种结果不等同于人工标注结论；人工复核状态见 `docs/evaluation/human-review.md`。
 
 ## 可选百炼代理
 
