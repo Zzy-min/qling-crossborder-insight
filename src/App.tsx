@@ -41,6 +41,7 @@ export function App() {
     return [...groups.values()].map(buildCompetitorSnapshot)
   }, [scopedDataset.products])
   const pricingCurrency = marketScope === 'EU' ? 'EUR' : 'USD'
+  const pricingSymbol = pricingCurrency === 'EUR' ? '€' : '$'
   const [price, setPrice] = useState(39.99)
   const [landedCost, setLandedCost] = useState(18)
   const pricing = useMemo(() => {
@@ -213,8 +214,8 @@ export function App() {
               <label>售价（{pricingCurrency}）<input aria-label="售价" type="number" min="0.01" step="0.01" value={price} onChange={(event) => setPrice(Math.max(0.01, Number(event.target.value)))} /></label>
               <label>到岸成本（{pricingCurrency}）<input aria-label="到岸成本" type="number" min="0" step="0.01" value={landedCost} onChange={(event) => setLandedCost(Math.max(0, Number(event.target.value)))} /></label>
             </div>
-            {pricing ? <div className="pricing-result"><div><small>单件贡献</small><strong>${pricing.contributionPerUnit}</strong></div><div><small>贡献率</small><strong>{(pricing.contributionMarginRate * 100).toFixed(2)}%</strong></div><div><small>保本销量</small><strong>{pricing.breakEvenUnits} 件</strong></div></div> : <p className="scenario-error" role="status">当前售价不足以覆盖成本和费率，请调整参数。</p>}
-            <small>假设：平台费 15%、广告费 12%、固定启动成本 $2,500；仅为情景计算，不预测真实销量。</small>
+            {pricing ? <div className="pricing-result"><div><small>单件贡献</small><strong>{pricingSymbol}{pricing.contributionPerUnit}</strong></div><div><small>贡献率</small><strong>{(pricing.contributionMarginRate * 100).toFixed(2)}%</strong></div><div><small>保本销量</small><strong>{pricing.breakEvenUnits} 件</strong></div></div> : <p className="scenario-error" role="status">当前售价不足以覆盖成本和费率，请调整参数。</p>}
+            <small>假设：平台费 15%、广告费 12%、固定启动成本 {pricingSymbol}2,500；仅为情景计算，不预测真实销量。</small>
           </article>
         </div>
       </section>

@@ -44,6 +44,9 @@ test('market scope keeps policy and competitor evidence aligned', async ({ page 
   await expect(page.getByText('欧盟市场 · EUR')).toBeVisible()
   await expect(page.getByText('美国市场 · USD')).toHaveCount(0)
   await expect(page.getByText('售价（EUR）')).toBeVisible()
+  await expect(page.getByText('€11.19')).toBeVisible()
+  await expect(page.getByText(/固定启动成本 €2,500/)).toBeVisible()
+  await expect(page.getByText('$11.19')).toHaveCount(0)
 
   await page.getByRole('button', { name: '美国', exact: true }).click()
   await expect(page.getByText('US · MEDIUM')).toBeVisible()
