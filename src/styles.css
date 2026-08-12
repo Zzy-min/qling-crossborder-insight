@@ -1,0 +1,71 @@
+:root {
+  font-family: Inter, "Segoe UI", "Microsoft YaHei", sans-serif;
+  color: #18201d;
+  background: #eef1eb;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+a { color: inherit; }
+button, input { font: inherit; }
+
+.hero {
+  min-height: 610px;
+  color: #f4f4ed;
+  padding: 28px clamp(24px, 6vw, 96px) 64px;
+  background:
+    radial-gradient(circle at 78% 26%, rgba(186, 255, 83, .12), transparent 28%),
+    linear-gradient(125deg, #101714, #1b2821 72%, #243c2d);
+}
+
+nav, .hero-grid, .section-heading, .grid { max-width: 1280px; margin: 0 auto; }
+nav { display: flex; align-items: center; justify-content: space-between; }
+.brand { font-weight: 750; letter-spacing: -.02em; }
+.brand span { display: inline-grid; place-items: center; width: 38px; height: 38px; margin-right: 10px; border-radius: 50%; color: #152018; background: #c9ff66; }
+.prototype-pill { color: #c9ff66; border: 1px solid rgba(201,255,102,.4); border-radius: 999px; padding: 8px 14px; font-size: 12px; letter-spacing: .08em; }
+.hero-grid { display: grid; grid-template-columns: 1.3fr .7fr; gap: clamp(40px, 8vw, 120px); align-items: center; padding-top: 90px; }
+.eyebrow { color: #93a29b; letter-spacing: .16em; font-size: 12px; font-weight: 800; text-transform: uppercase; }
+h1 { font-size: clamp(48px, 6vw, 84px); line-height: .98; letter-spacing: -.055em; margin: 20px 0 28px; max-width: 850px; }
+h1 em { color: #c9ff66; font-style: normal; }
+.hero-copy { color: #b9c3bd; max-width: 650px; font-size: 18px; line-height: 1.7; }
+.upload-button { display: inline-block; margin-top: 20px; padding: 14px 22px; border-radius: 4px; color: #172018; background: #c9ff66; font-weight: 800; cursor: pointer; }
+.upload-button input { display: none; }
+.source-note { display: inline-block; margin-left: 14px; color: #9caaa2; font-size: 13px; }
+.error { color: #ff9c89; }
+.decision-card { padding: 34px; border: 1px solid rgba(255,255,255,.15); border-radius: 12px; background: rgba(255,255,255,.055); backdrop-filter: blur(12px); }
+.decision-card > p:first-child { color: #93a29b; }
+.score-ring { display: flex; align-items: baseline; gap: 8px; margin: 22px 0; }
+.score-ring strong { color: #c9ff66; font-size: 82px; letter-spacing: -.08em; }
+.score-ring span { color: #829188; }
+.decision-card h2 { font-size: 25px; }
+.decision-card p:last-child { color: #bac5be; line-height: 1.65; }
+
+.dashboard { padding: 72px clamp(24px, 6vw, 96px) 96px; }
+.section-heading { display: flex; justify-content: space-between; align-items: end; gap: 30px; margin-bottom: 30px; }
+.section-heading h2 { margin: 8px 0 0; font-size: clamp(28px, 3vw, 42px); letter-spacing: -.04em; }
+.section-heading > p { color: #68736d; font-size: 13px; }
+.grid.three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.panel { position: relative; padding: 30px; min-height: 430px; border-radius: 10px; background: #fafbf7; box-shadow: 0 16px 50px rgba(31,45,37,.06); }
+.panel h3 { font-size: 24px; margin: 8px 0 28px; }
+.number { color: #9da69f; font-size: 12px; }
+.theme, .risk { padding: 18px 0; border-top: 1px solid #dfe3dc; }
+.theme > div { display: flex; justify-content: space-between; gap: 12px; }
+.theme small { color: #7a847e; }
+.theme p, .risk p { color: #58645e; line-height: 1.5; font-size: 14px; }
+.theme a, .risk a { color: #356922; font-size: 13px; font-weight: 700; }
+.fixture-source { color: #7a847e; font-size: 12px; font-weight: 700; }
+.metric { margin-bottom: 22px; }
+.metric > div:first-child { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.bar { height: 7px; border-radius: 99px; overflow: hidden; background: #e4e8e1; }
+.bar i { display: block; height: 100%; background: #4e8b36; }
+.panel > small { color: #768078; line-height: 1.55; }
+.risk > span { display: inline-block; margin-bottom: 12px; padding: 5px 8px; color: #7b3f1e; background: #ffe1bc; font-size: 10px; font-weight: 900; }
+
+@media (max-width: 900px) {
+  .hero-grid, .grid.three { grid-template-columns: 1fr; }
+  .hero-grid { padding-top: 60px; }
+  .section-heading { align-items: start; flex-direction: column; }
+  .prototype-pill { display: none; }
+  .source-note { display: block; margin: 12px 0 0; }
+}

@@ -1,0 +1,64 @@
+import type { DatasetBundle } from '../domain/types'
+
+export const sampleDataset: DatasetBundle = {
+  products: [
+    {
+      productId: 'gan-65w-a',
+      title: '65W GaN USB-C Charger',
+      brand: 'SampleTech',
+      market: 'US',
+      currency: 'USD',
+      price: 39.99,
+      rating: 4.1,
+      reviewCount: 1280,
+      capturedAt: '2026-07-30',
+      sourceUrl: 'fixture:usb-c-chargers/product/gan-65w-a',
+    },
+  ],
+  reviews: [
+    {
+      reviewId: 'review-hot-1',
+      productId: 'gan-65w-a',
+      locale: 'en-US',
+      rating: 2,
+      title: 'Runs too hot',
+      body: 'The charger becomes very hot while powering a laptop and phone together.',
+      reviewedAt: '2026-07-20',
+      verifiedPurchase: true,
+      sourceUrl: 'fixture:usb-c-chargers/review/review-hot-1',
+    },
+    {
+      reviewId: 'review-port-1',
+      productId: 'gan-65w-a',
+      locale: 'en-US',
+      rating: 2,
+      title: 'Ports reset',
+      body: 'Connecting a second device briefly interrupts charging on the first port.',
+      reviewedAt: '2026-07-18',
+      verifiedPurchase: true,
+      sourceUrl: 'fixture:usb-c-chargers/review/review-port-1',
+    },
+    {
+      reviewId: 'review-size-1',
+      productId: 'gan-65w-a',
+      locale: 'en-US',
+      rating: 5,
+      title: 'Compact travel charger',
+      body: 'Small enough for travel and charges my laptop quickly.',
+      reviewedAt: '2026-07-10',
+      verifiedPurchase: true,
+      sourceUrl: 'fixture:usb-c-chargers/review/review-size-1',
+    },
+  ],
+  policies: [
+    {
+      policyId: 'us-fcc-label',
+      market: 'US',
+      authority: 'FCC',
+      topic: 'device-marketing-claims',
+      effectiveAt: '2026-01-01',
+      summary: 'Marketing material should not imply FCC approval when the applicable process is authorization or compliance.',
+      sourceUrl: 'https://www.fcc.gov/oet/ea/rfdevice',
+    },
+  ],
+}
