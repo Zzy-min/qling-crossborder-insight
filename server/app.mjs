@@ -1,4 +1,5 @@
 import { createServer } from 'node:http'
+import { validateDataset } from './dataset-schema.mjs'
 
 const MAX_BODY_BYTES = 1_000_000
 
@@ -50,10 +51,7 @@ export function createApiServer({ apiKey, fetcher = fetch, endpoint = 'https://d
         if (size > MAX_BODY_BYTES) throw new Error('payload_too_large')
         chunks.push(chunk)
       }
-      const dataset = JSON.parse(Buffer.concat(chunks).toString('utf8'))
-      if (!dataset || !Array.isArray(dataset.reviews) || !Array.isArray(dataset.policies)) {
-        throw new Error('invalid_dataset')
-      }
+      const dataset = validateDataset(JSON.parse(Buffer.concat(chunks).toString('utf8')))
       const upstream = await fetcher(endpoint, {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
