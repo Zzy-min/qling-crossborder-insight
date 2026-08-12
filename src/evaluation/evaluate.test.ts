@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildInsightReport } from '../domain/analysis'
 import { sampleDataset } from '../fixtures/usbCChargers'
 import { evaluateReport } from './evaluate'
+import { goldenCases } from './goldenSet'
 
 describe('golden evaluation gate', () => {
   it('passes the starter USB-C charger golden case', () => {
@@ -23,5 +24,17 @@ describe('golden evaluation gate', () => {
       unknownEvidenceCount: 0,
       passed: true,
     })
+  })
+})
+
+describe('starter golden suite', () => {
+  it.each(goldenCases)('$id meets the evidence and recall gates', ({ dataset, expected }) => {
+    const report = buildInsightReport(dataset, '2026-08-12T00:00:00.000Z')
+    const knownIds = new Set([
+      ...dataset.products.map((row) => row.productId),
+      ...dataset.reviews.map((row) => row.reviewId),
+      ...dataset.policies.map((row) => row.policyId),
+    ])
+    expect(evaluateReport(report, expected, knownIds).passed).toBe(true)
   })
 })
