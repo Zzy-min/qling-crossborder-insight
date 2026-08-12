@@ -45,6 +45,24 @@ describe('parseReviewCsv', () => {
       .toThrowError(new CsvValidationError(2, 'body', '单元格不得超过 5,000 个字符'))
   })
 
+  it('parses quoted commas, escaped quotes and newlines as one review', () => {
+    const csv = `${header}\nr1,p1,en-US,2,"Hot, then stable","First line\nSecond says ""too hot""",2026-07-01,true,fixture:r1`
+    const rows = parseReviewCsv(csv)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.title).toBe('Hot, then stable')
+    expect(rows[0]?.body).toBe('First line\nSecond says "too hot"')
+  })
+
+  it('rejects unclosed quotes with the record start line', () => {
+    expect(() => parseReviewCsv(`${header}\nr1,p1,en-US,2,Hot,"never closes,2026-07-01,true,fixture:r1`))
+      .toThrowError(new CsvValidationError(2, 'csv', '引号未闭合'))
+  })
+
+  it('rejects rows with extra columns', () => {
+    expect(() => parseReviewCsv(`${header}\nr1,p1,en-US,2,Hot,Text,2026-07-01,true,fixture:r1,unexpected`))
+      .toThrowError(new CsvValidationError(2, 'csv', '列数应为 9，实际为 10'))
+  })
+
   it('rejects reviews that reference products outside the allowed dataset', () => {
     expect(() => parseReviewCsv(`${header}\nr1,unknown-product,en-US,2,Hot,Text,2026-07-01,true,fixture:r1`, new Set(['p1'])))
       .toThrowError(new CsvValidationError(2, 'productId', '未在当前商品数据中找到: unknown-product'))

@@ -48,15 +48,30 @@ export class CsvValidationError extends Error {
   }
 }
 
-function parseCsvLine(line: string): string[] {
-  const cells: string[] = []
+interface CsvRecord {
+  cells: string[]
+  startLine: number
+}
+
+function parseCsvRecords(csv: string): CsvRecord[] {
+  const records: CsvRecord[] = []
+  let cells: string[] = []
   let current = ''
   let quoted = false
+  let line = 1
+  let startLine = 1
 
-  for (let index = 0; index < line.length; index += 1) {
-    const character = line[index]
+  const finishRecord = () => {
+    cells.push(current.trim())
+    if (cells.some((cell) => cell.length > 0)) records.push({ cells, startLine })
+    cells = []
+    current = ''
+  }
+
+  for (let index = 0; index < csv.length; index += 1) {
+    const character = csv[index]
     if (character === '"') {
-      if (quoted && line[index + 1] === '"') {
+      if (quoted && csv[index + 1] === '"') {
         current += '"'
         index += 1
       } else {
@@ -65,13 +80,27 @@ function parseCsvLine(line: string): string[] {
     } else if (character === ',' && !quoted) {
       cells.push(current.trim())
       current = ''
+    } else if ((character === '\n' || character === '\r') && !quoted) {
+      if (character === '\r' && csv[index + 1] === '\n') index += 1
+      finishRecord()
+      line += 1
+      startLine = line
     } else {
       current += character
+      if (character === '\n') line += 1
+      else if (character === '\r') {
+        if (csv[index + 1] === '\n') {
+          current += '\n'
+          index += 1
+        }
+        line += 1
+      }
     }
   }
 
-  cells.push(current.trim())
-  return cells
+  if (quoted) throw new CsvValidationError(startLine, 'csv', '引号未闭合')
+  finishRecord()
+  return records
 }
 
 function parseBoolean(value: string, row: number): boolean {
@@ -82,11 +111,11 @@ function parseBoolean(value: string, row: number): boolean {
 
 export function parseReviewCsv(csv: string, allowedProductIds?: ReadonlySet<string>): ReviewRow[] {
   if ([...csv].length > 1_000_000) throw new Error('CSV 文件不得超过 1,000,000 个字符')
-  const lines = csv.replace(/^\uFEFF/, '').split(/\r?\n/).filter((line) => line.trim())
-  if (lines.length < 2) throw new Error('CSV 至少需要表头和一行数据')
-  if (lines.length - 1 > 1000) throw new Error('CSV 最多支持 1,000 行评论')
+  const records = parseCsvRecords(csv.replace(/^\uFEFF/, ''))
+  if (records.length < 2) throw new Error('CSV 至少需要表头和一行数据')
+  if (records.length - 1 > 1000) throw new Error('CSV 最多支持 1,000 行评论')
 
-  const headers = parseCsvLine(lines[0] ?? '')
+  const headers = records[0]?.cells ?? []
   const forbidden = headers.find((header) => personalDataColumns.has(header))
   if (forbidden) throw new Error(`不接受个人信息字段: ${forbidden}`)
 
@@ -96,9 +125,12 @@ export function parseReviewCsv(csv: string, allowedProductIds?: ReadonlySet<stri
 
   const uniqueRows = new Map<string, ReviewRow>()
   const firstRowByReviewId = new Map<string, number>()
-  lines.slice(1).forEach((line, index) => {
-    const rowNumber = index + 2
-    const cells = parseCsvLine(line)
+  records.slice(1).forEach((record) => {
+    const rowNumber = record.startLine
+    const cells = record.cells
+    if (cells.length !== headers.length) {
+      throw new CsvValidationError(rowNumber, 'csv', `列数应为 ${headers.length}，实际为 ${cells.length}`)
+    }
     const oversizedCellIndex = cells.findIndex((cell) => [...cell].length > 5000)
     if (oversizedCellIndex >= 0) {
       throw new CsvValidationError(rowNumber, headers[oversizedCellIndex] ?? `column-${oversizedCellIndex + 1}`, '单元格不得超过 5,000 个字符')

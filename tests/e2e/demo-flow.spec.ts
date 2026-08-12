@@ -67,6 +67,15 @@ test('conflicting duplicate review IDs are rejected without replacing the report
   await expect(page.getByText('当前：内置公开演示样例')).toBeVisible()
 })
 
+test('quoted multiline review content imports as one evidence record', async ({ page }) => {
+  await page.goto('/')
+  const csv = 'reviewId,productId,locale,rating,title,body,reviewedAt,verifiedPurchase,sourceUrl\nmultiline-1,gan-65w-a,en-US,2,"Hot, then stable","The charger gets hot.\nA second line confirms ""full load"" heat.",2026-07-01,true,fixture:multiline-1'
+  await page.locator('input[type=file]').setInputFiles({ name: 'multiline.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) })
+  await expect(page.getByText('本地 CSV · multiline.csv')).toBeVisible()
+  await expect(page.locator('.theme p')).toContainText('Hot, then stable: The charger gets hot.')
+  await expect(page.locator('.theme p')).toContainText('A second line confirms "full load" heat.')
+})
+
 test('mobile layout has no horizontal overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
