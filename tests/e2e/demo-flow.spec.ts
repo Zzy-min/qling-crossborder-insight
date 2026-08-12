@@ -126,3 +126,31 @@ test('configured proxy enables AI analysis with evidence binding', async ({ page
   await expect(page.getByText('AI 识别：FCC 宣传措辞')).toBeVisible()
   await expect(page.getByText('百炼增强 · 证据约束')).toBeVisible()
 })
+
+test('late AI response cannot overwrite a newly selected market', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.fetch = async (input, init) => {
+      const url = String(input)
+      if (url.endsWith('/health')) return new Response(JSON.stringify({ providerConfigured: true }))
+      if (url.endsWith('/api/analyze')) {
+        const dataset = JSON.parse(String(init?.body))
+        await new Promise((resolve) => setTimeout(resolve, 300))
+        const content = JSON.stringify({
+          themes: [{ id: 'late-us', label: '过期美国结果', sentiment: 'negative', reviewIds: [dataset.reviews[0].reviewId] }],
+          complianceRisks: [{ id: 'late-us-policy', label: '过期美国政策', severity: 'medium', policyIds: ['us-fcc-label'] }],
+        })
+        return new Response(JSON.stringify({ choices: [{ message: { content } }] }))
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    }
+  })
+  await page.goto('/')
+  await expect(page.getByText('服务端已配置')).toBeVisible()
+  await page.getByRole('button', { name: '运行百炼增强' }).click()
+  await page.getByRole('button', { name: '欧盟', exact: true }).click()
+  await page.waitForTimeout(500)
+  await expect(page.getByText('过期美国结果')).toHaveCount(0)
+  await expect(page.getByText('过期美国政策')).toHaveCount(0)
+  await expect(page.getByText('EU · MEDIUM')).toBeVisible()
+  await expect(page.getByText('US · MEDIUM')).toHaveCount(0)
+})

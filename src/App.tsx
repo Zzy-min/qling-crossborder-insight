@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { buildInsightReport, buildInsightReportFromAnalysis } from './domain/analysis'
 import { parseReviewCsv } from './domain/csv'
 import type { DatasetBundle, InsightReport } from './domain/types'
@@ -30,6 +30,7 @@ export function App() {
   const [report, setReport] = useState<InsightReport>(fixtureReport)
   const [aiConfigured, setAiConfigured] = useState(false)
   const [aiStatus, setAiStatus] = useState<'checking' | 'offline' | 'ready' | 'running' | 'fallback'>('checking')
+  const analysisVersion = useRef(0)
   const proxyProvider = useMemo(() => new ProxyProvider({ baseUrl: import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8787' }), [])
   const competitorSnapshots = useMemo(() => {
     const groups = scopedDataset.products.reduce((result, product) => {
@@ -53,6 +54,7 @@ export function App() {
   }, [price, landedCost])
 
   useEffect(() => {
+    analysisVersion.current += 1
     setReport(fixtureReport)
     setAiStatus(aiConfigured ? 'ready' : 'offline')
   }, [fixtureReport, aiConfigured])
@@ -80,13 +82,17 @@ export function App() {
   }
 
   async function runAiAnalysis() {
+    const requestVersion = analysisVersion.current + 1
+    analysisVersion.current = requestVersion
     setAiStatus('running')
     setError('')
     try {
       const analysis = await proxyProvider.analyze(scopedDataset)
+      if (analysisVersion.current !== requestVersion) return
       setReport(buildInsightReportFromAnalysis(scopedDataset, analysis, proxyProvider.mode))
       setAiStatus('ready')
     } catch {
+      if (analysisVersion.current !== requestVersion) return
       setReport(fixtureReport)
       setAiStatus('fallback')
       setError('AI 增强暂不可用，已安全回退到本地确定性分析。')
