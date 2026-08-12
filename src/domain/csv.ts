@@ -109,7 +109,12 @@ function parseBoolean(value: string, row: number): boolean {
   throw new CsvValidationError(row, 'verifiedPurchase', '必须为 true 或 false')
 }
 
-export function parseReviewCsv(csv: string, allowedProductIds?: ReadonlySet<string>): ReviewRow[] {
+export interface ParsedReviewCsv {
+  reviews: ReviewRow[]
+  deduplicatedCount: number
+}
+
+export function parseReviewCsvDetailed(csv: string, allowedProductIds?: ReadonlySet<string>): ParsedReviewCsv {
   if ([...csv].length > 1_000_000) throw new Error('CSV 文件不得超过 1,000,000 个字符')
   const records = parseCsvRecords(csv.replace(/^\uFEFF/, ''))
   if (records.length < 2) throw new Error('CSV 至少需要表头和一行数据')
@@ -170,5 +175,12 @@ export function parseReviewCsv(csv: string, allowedProductIds?: ReadonlySet<stri
     }
   })
 
-  return [...uniqueRows.values()]
+  return {
+    reviews: [...uniqueRows.values()],
+    deduplicatedCount: records.length - 1 - uniqueRows.size,
+  }
+}
+
+export function parseReviewCsv(csv: string, allowedProductIds?: ReadonlySet<string>): ReviewRow[] {
+  return parseReviewCsvDetailed(csv, allowedProductIds).reviews
 }

@@ -1,36 +1,52 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { buildInsightReport, buildInsightReportFromAnalysis } from './domain/analysis'
-import { parseReviewCsv } from './domain/csv'
-import type { DatasetBundle, InsightReport } from './domain/types'
+import { CsvValidationError, parseReviewCsvDetailed } from './domain/csv'
+import type { AnalysisStage, DatasetBundle, EvidenceRef, InsightReport } from './domain/types'
 import { buildCompetitorSnapshot, simulatePricing } from './domain/market'
 import { sampleDataset } from './fixtures/usbCChargers'
 import { ProxyProvider } from './providers/provider'
 import { scopeDataset, type MarketScope } from './domain/scope'
+import { WorkspaceShell, type WorkspaceStep } from './components/WorkspaceShell'
+import { DataPreparation, type ImportErrorDetail } from './components/DataPreparation'
+import { DecisionOverview } from './components/DecisionOverview'
+import { EvidenceDrawer, type EvidenceSelection } from './components/EvidenceDrawer'
+import { EvidenceWorkspace } from './components/EvidenceWorkspace'
+import { ReportView } from './components/ReportView'
 
-const scoreLabels = {
-  painIntensity: '痛点强度',
-  improvementSpace: '可改进空间',
-  competitionAndMargin: '竞争与利润空间',
-  dataConfidence: '数据可信度',
-  compliancePenalty: '合规风险扣分',
-}
+const analysisStages: Array<{ id: AnalysisStage; label: string }> = [
+  { id: 'validation', label: '数据校验' },
+  { id: 'themes', label: '主题识别' },
+  { id: 'binding', label: '证据绑定' },
+  { id: 'scoring', label: '机会评分' },
+  { id: 'compliance', label: '合规检查' },
+  { id: 'report', label: '报告生成' },
+]
 
-function EvidenceSource({ sourceUrl }: { sourceUrl: string }) {
-  if (sourceUrl.startsWith('fixture:')) return <span className="fixture-source">本地演示证据</span>
-  return <a href={sourceUrl} target="_blank" rel="noreferrer">查看来源 ↗</a>
+function evidenceMarket(evidence: EvidenceRef, dataset: DatasetBundle) {
+  if (evidence.evidenceType === 'policy') return dataset.policies.find((item) => item.policyId === evidence.recordId)?.market
+  const productId = evidence.evidenceType === 'product'
+    ? evidence.recordId
+    : dataset.reviews.find((item) => item.reviewId === evidence.recordId)?.productId
+  return dataset.products.find((item) => item.productId === productId)?.market
 }
 
 export function App() {
   const [dataset, setDataset] = useState<DatasetBundle>(sampleDataset)
   const [marketScope, setMarketScope] = useState<MarketScope>('BOTH')
-  const [sourceLabel, setSourceLabel] = useState('内置公开演示样例')
-  const [error, setError] = useState('')
+  const [sourceLabel, setSourceLabel] = useState('内置演示样例')
+  const [deduplicatedCount, setDeduplicatedCount] = useState(0)
+  const [importError, setImportError] = useState<ImportErrorDetail | null>(null)
+  const [activeStep, setActiveStep] = useState<WorkspaceStep>('data')
+  const [selection, setSelection] = useState<EvidenceSelection | null>(null)
+  const [analysisStage, setAnalysisStage] = useState<AnalysisStage | null>(null)
   const scopedDataset = useMemo(() => scopeDataset(dataset, marketScope), [dataset, marketScope])
-  const fixtureReport = useMemo(() => buildInsightReport(scopedDataset), [scopedDataset])
+  const fixtureReport = useMemo(() => buildInsightReport(scopedDataset, undefined, { deduplicatedCount }), [scopedDataset, deduplicatedCount])
   const [report, setReport] = useState<InsightReport>(fixtureReport)
   const [aiConfigured, setAiConfigured] = useState(false)
   const [aiStatus, setAiStatus] = useState<'checking' | 'offline' | 'ready' | 'running' | 'fallback'>('checking')
+  const [analysisError, setAnalysisError] = useState('')
   const analysisVersion = useRef(0)
+  const stageTimers = useRef<number[]>([])
   const proxyProvider = useMemo(() => new ProxyProvider({ baseUrl: import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8787' }), [])
   const competitorSnapshots = useMemo(() => {
     const groups = scopedDataset.products.reduce((result, product) => {
@@ -41,23 +57,30 @@ export function App() {
     }, new Map<string, typeof scopedDataset.products>())
     return [...groups.values()].map(buildCompetitorSnapshot)
   }, [scopedDataset.products])
-  const pricingCurrency = marketScope === 'EU' ? 'EUR' : 'USD'
-  const pricingSymbol = pricingCurrency === 'EUR' ? '€' : '$'
   const [price, setPrice] = useState(39.99)
   const [landedCost, setLandedCost] = useState(18)
   const pricing = useMemo(() => {
-    try {
-      return simulatePricing({ price, landedCost, platformRate: 0.15, adRate: 0.12, fixedLaunchCost: 2500 })
-    } catch {
-      return null
-    }
+    try { return simulatePricing({ price, landedCost, platformRate: 0.15, adRate: 0.12, fixedLaunchCost: 2500 }) }
+    catch { return null }
   }, [price, landedCost])
+  const canAnalyze = scopedDataset.products.length > 0 && scopedDataset.reviews.length > 0 && scopedDataset.policies.length > 0
+
+  const clearStageTimers = useCallback(() => {
+    stageTimers.current.forEach(window.clearTimeout)
+    stageTimers.current = []
+  }, [])
+
+  useEffect(() => () => clearStageTimers(), [clearStageTimers])
 
   useEffect(() => {
     analysisVersion.current += 1
+    clearStageTimers()
+    setAnalysisStage(null)
     setReport(fixtureReport)
     setAiStatus(aiConfigured ? 'ready' : 'offline')
-  }, [fixtureReport, aiConfigured])
+    setAnalysisError('')
+    setSelection(null)
+  }, [fixtureReport, aiConfigured, clearStageTimers])
 
   useEffect(() => {
     let active = true
@@ -69,44 +92,66 @@ export function App() {
     return () => { active = false }
   }, [proxyProvider])
 
-  async function handleCsvFile(file: File | undefined) {
+  async function handleCsvFile(file?: File) {
     if (!file) return
     try {
-      const reviews = parseReviewCsv(await file.text(), new Set(sampleDataset.products.map((product) => product.productId)))
-      setDataset({ ...sampleDataset, reviews })
+      const parsed = parseReviewCsvDetailed(await file.text(), new Set(sampleDataset.products.map((product) => product.productId)))
+      setDataset({ ...sampleDataset, reviews: parsed.reviews })
+      setDeduplicatedCount(parsed.deduplicatedCount)
       setSourceLabel(`本地 CSV · ${file.name}`)
-      setError('')
+      setImportError(null)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'CSV 解析失败')
+      const message = caught instanceof Error ? caught.message : 'CSV 解析失败'
+      setImportError({
+        summary: caught instanceof CsvValidationError ? `第 ${caught.row} 行的 ${caught.field} 未通过校验` : '文件未通过数据门禁',
+        detail: message,
+      })
     }
+  }
+
+  function resetDemo() {
+    setDataset(sampleDataset)
+    setDeduplicatedCount(0)
+    setSourceLabel('内置演示样例')
+    setImportError(null)
+    setMarketScope('BOTH')
+  }
+
+  function startAnalysisProgress() {
+    clearStageTimers()
+    analysisStages.forEach((stage, index) => {
+      stageTimers.current.push(window.setTimeout(() => setAnalysisStage(stage.id), index * 150))
+    })
+    stageTimers.current.push(window.setTimeout(() => {
+      setAnalysisStage(null)
+      setActiveStep('opportunity')
+    }, analysisStages.length * 150 + 120))
   }
 
   async function runAiAnalysis() {
     const requestVersion = analysisVersion.current + 1
     analysisVersion.current = requestVersion
     setAiStatus('running')
-    setError('')
+    setAnalysisError('')
+    startAnalysisProgress()
     try {
       const analysis = await proxyProvider.analyze(scopedDataset)
       if (analysisVersion.current !== requestVersion) return
-      setReport(buildInsightReportFromAnalysis(scopedDataset, analysis, proxyProvider.mode))
+      setReport(buildInsightReportFromAnalysis(scopedDataset, analysis, proxyProvider.mode, undefined, { deduplicatedCount }))
       setAiStatus('ready')
-    } catch {
+    } catch (caught) {
       if (analysisVersion.current !== requestVersion) return
       setReport(fixtureReport)
       setAiStatus('fallback')
-      setError('AI 增强暂不可用，已安全回退到本地确定性分析。')
+      const message = caught instanceof Error ? caught.message : ''
+      setAnalysisError(/timeout|超时/i.test(message) ? '百炼请求超时，已安全回退到本地确定性分析。' : '百炼服务暂不可用，已安全回退到本地确定性分析。')
     }
   }
 
   function exportReport() {
     const payload = {
-      schemaVersion: '1.0',
-      sourceLabel,
-      marketScope,
-      report,
-      competitorSnapshots,
-      pricingScenario: pricing ? { currency: pricingCurrency, ...pricing } : null,
+      schemaVersion: '1.1', sourceLabel, marketScope, report, competitorSnapshots,
+      pricingScenario: pricing ? { currency: marketScope === 'EU' ? 'EUR' : 'USD', ...pricing } : null,
       disclaimer: '本报告为信息辅助，不构成法律、财务或销量预测。',
     }
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }))
@@ -117,114 +162,56 @@ export function App() {
     URL.revokeObjectURL(url)
   }
 
-  return (
-    <main>
-      <header className="hero">
-        <nav>
-          <div className="brand"><span>QL</span> Qling 出海智察</div>
-          <div className="prototype-pill">{report.providerMode === 'bailian' ? '百炼增强 · 证据约束' : 'FIXTURE 原型 · 数据不上传'}</div>
-        </nav>
-        <div className="hero-grid">
-          <section>
-            <p className="eyebrow">AI 市场洞察 / 欧美 USB-C 充电器</p>
-            <h1>把分散信息，变成<br /><em>可追溯的进入决策</em></h1>
-            <p className="hero-copy">评论痛点、机会评分与合规预警形成一个证据闭环。AI 负责理解，确定性规则负责把关。</p>
-            <div className="market-selector" role="group" aria-label="目标市场">
-              <span>目标市场</span>
-              {([['US', '美国'], ['EU', '欧盟'], ['BOTH', '美国 + 欧盟']] as const).map(([value, label]) => (
-                <button key={value} type="button" aria-pressed={marketScope === value} onClick={() => setMarketScope(value)}>{label}</button>
-              ))}
-            </div>
-            <label className="upload-button">
-              导入评论 CSV
-              <input type="file" accept=".csv,text/csv" onChange={(event) => void handleCsvFile(event.target.files?.[0])} />
-            </label>
-            <button className="export-button" type="button" onClick={exportReport}>导出证据报告</button>
-            <a className="template-link" href="./samples/reviews-template.csv" download>下载 CSV 模板</a>
-            <div className="ai-control">
-              <button type="button" disabled={!aiConfigured || aiStatus === 'running'} onClick={() => void runAiAnalysis()}>{aiStatus === 'running' ? 'AI 分析中…' : '运行百炼增强'}</button>
-              <span className={`ai-state ${aiStatus}`}>{aiStatus === 'checking' ? '正在检测本地代理' : aiStatus === 'ready' ? '服务端已配置' : aiStatus === 'fallback' ? '已回退本地分析' : '未配置，保持离线模式'}</span>
-            </div>
-            <span className="source-note">当前：{sourceLabel}</span>
-            {error && <p className="error" role="alert">{error}</p>}
-          </section>
-          <aside className="decision-card">
-            <p>市场机会指数</p>
-            <div className="score-ring"><strong>{report.opportunityScore}</strong><span>/ 100</span></div>
-            <h2>{report.opportunityScore >= 60 ? '建议进入验证阶段' : '建议补充证据后再决策'}</h2>
-            <p>{report.recommendation}</p>
-          </aside>
-        </div>
-      </header>
+  function openTheme(index: number) {
+    const theme = report.themes[index]
+    if (!theme) return
+    setSelection({ title: theme.label, kind: '评论痛点', confidence: theme.evidence.length ? '有原始评论支持' : '证据不足', explanation: `${theme.mentions} 条关键证据指向该体验问题。`, evidence: theme.evidence.map((item) => ({ ...item, excerpt: `${item.excerpt} · 市场 ${evidenceMarket(item, scopedDataset) ?? '未知'}` })) })
+  }
 
-      <section className="dashboard">
-        <div className="section-heading">
-          <div><p className="eyebrow">DECISION EVIDENCE</p><h2>结论不是黑箱，每一步都有依据</h2></div>
-          <p>生成于 {new Date(report.generatedAt).toLocaleString('zh-CN')}</p>
-        </div>
+  function openRisk(index: number) {
+    const risk = report.complianceRisks[index]
+    if (!risk) return
+    setSelection({ title: risk.label, kind: `${risk.market} 合规预警`, confidence: '官方来源已绑定 · 需人工复核', explanation: '系统只提示适用范围与措辞风险，不自动作出法律判断。', evidence: risk.evidence })
+  }
 
-        <div className="grid three">
-          <article className="panel themes">
-            <span className="number">01</span><h3>评论痛点</h3>
-            {report.themes.map((theme) => (
-              <div className="theme" key={theme.id}>
-                <div><strong>{theme.label}</strong><small>{theme.mentions} 条关键证据</small></div>
-                <p>“{theme.evidence[0]?.excerpt}”</p>
-                <EvidenceSource sourceUrl={theme.evidence[0]?.sourceUrl ?? 'fixture:missing'} />
-              </div>
-            ))}
-          </article>
+  function openMarketEvidence() {
+    setSelection({
+      title: '竞品价格带与市场验证',
+      kind: '商品快照',
+      confidence: scopedDataset.products.length ? '有商品快照支持 · 需补充实时验证' : '证据不足',
+      explanation: '当前快照用于确定价格带和竞争位置，不代表实时市场，也不预测销量。',
+      evidence: scopedDataset.products.map((product) => ({
+        recordId: product.productId,
+        evidenceType: 'product',
+        capturedAt: product.capturedAt,
+        sourceUrl: product.sourceUrl,
+        excerpt: `${product.brand} · ${product.title} · ${product.currency} ${product.price} · 评分 ${product.rating} · ${product.reviewCount} 条评论`,
+      })),
+    })
+  }
 
-          <article className="panel breakdown">
-            <span className="number">02</span><h3>评分拆解</h3>
-            {Object.entries(report.scoreBreakdown).map(([key, value]) => (
-              <div className="metric" key={key}>
-                <div><span>{scoreLabels[key as keyof typeof scoreLabels]}</span><strong>{value}</strong></div>
-                <div className="bar"><i style={{ width: `${value}%` }} /></div>
-              </div>
-            ))}
-            <small>最终分数由固定权重计算，模型不能直接修改。</small>
-          </article>
+  function openScore(index: number) {
+    const item = report.scoreContributions[index]
+    if (!item) return
+    const evidence = item.key === 'painIntensity' || item.key === 'improvementSpace'
+      ? report.themes.flatMap((theme) => theme.evidence)
+      : item.key === 'compliancePenalty' ? report.complianceRisks.flatMap((risk) => risk.evidence) : []
+    setSelection({ title: item.label, kind: '评分解释', confidence: evidence.length ? '确定性计算 · 有关联证据' : '确定性计算 · 间接数据', explanation: `原始分 ${item.rawScore}，${item.direction === 'subtract' ? '扣减' : '增加'}权重 ${Math.round(item.weight * 100)}%，加权贡献 ${item.weightedContribution}。模型不能直接修改该分项。`, evidence })
+  }
 
-          <article className="panel compliance">
-            <span className="number">03</span><h3>合规预警</h3>
-            {report.complianceRisks.map((risk) => (
-              <div className="risk" key={risk.id}>
-                <span>{risk.market} · {risk.severity.toUpperCase()}</span>
-                <strong>{risk.label}</strong>
-                <p>{risk.evidence[0]?.excerpt}</p>
-                <EvidenceSource sourceUrl={risk.evidence[0]?.sourceUrl ?? 'fixture:missing'} />
-              </div>
-            ))}
-            <small>信息辅助，不构成法律意见；所有风险需人工复核。</small>
-          </article>
-        </div>
+  const providerLabel = report.providerMode === 'bailian' ? '百炼增强' : aiStatus === 'fallback' ? '本地回退' : '本地规则'
 
-        <div className="grid two auxiliary">
-          <article className="panel competitor-panel">
-            <span className="number">04</span><h3>竞品快照</h3>
-            {competitorSnapshots.map((snapshot) => <div className="market-snapshot" key={snapshot.currency}>
-              <h4>{snapshot.currency === 'USD' ? '美国市场 · USD' : '欧盟市场 · EUR'}</h4>
-              <div className="snapshot-summary"><div><small>价格中位数</small><strong>{snapshot.currency === 'USD' ? '$' : '€'}{snapshot.medianPrice}</strong></div><div><small>评分中位数</small><strong>{snapshot.medianRating}</strong></div></div>
-              <div className="competitor-list">
-                {snapshot.products.map((product) => <div key={product.productId}><span><strong>{product.brand}</strong><small>{product.title}</small></span><b>{snapshot.currency === 'USD' ? '$' : '€'}{product.price}</b></div>)}
-              </div>
-              <small>快照时间 {snapshot.capturedAt}</small>
-            </div>)}
-            <small>当前为本地演示数据，不代表实时市场；不同币种不合并计算。</small>
-          </article>
-
-          <article className="panel pricing-panel">
-            <span className="number">05</span><h3>定价情景</h3>
-            <div className="pricing-inputs">
-              <label>售价（{pricingCurrency}）<input aria-label="售价" type="number" min="0.01" step="0.01" value={price} onChange={(event) => setPrice(Math.max(0.01, Number(event.target.value)))} /></label>
-              <label>到岸成本（{pricingCurrency}）<input aria-label="到岸成本" type="number" min="0" step="0.01" value={landedCost} onChange={(event) => setLandedCost(Math.max(0, Number(event.target.value)))} /></label>
-            </div>
-            {pricing ? <div className="pricing-result"><div><small>单件贡献</small><strong>{pricingSymbol}{pricing.contributionPerUnit}</strong></div><div><small>贡献率</small><strong>{(pricing.contributionMarginRate * 100).toFixed(2)}%</strong></div><div><small>保本销量</small><strong>{pricing.breakEvenUnits} 件</strong></div></div> : <p className="scenario-error" role="status">当前售价不足以覆盖成本和费率，请调整参数。</p>}
-            <small>假设：平台费 15%、广告费 12%、固定启动成本 {pricingSymbol}2,500；仅为情景计算，不预测真实销量。</small>
-          </article>
-        </div>
-      </section>
-    </main>
-  )
+  return <WorkspaceShell activeStep={activeStep} onStepChange={setActiveStep} sourceLabel={sourceLabel} marketScope={marketScope} providerLabel={providerLabel} report={report}>
+    <div className="surface-toolbar no-print">
+      <div className="market-control" role="group" aria-label="目标市场"><span>目标市场</span>{([['US', '美国'], ['EU', '欧盟'], ['BOTH', '美国 + 欧盟']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={marketScope === value} onClick={() => setMarketScope(value)}>{label}</button>)}</div>
+      <div className="ai-control"><span className={`ai-state ${aiStatus}`}>{aiStatus === 'checking' ? '检测代理…' : aiStatus === 'running' ? '百炼分析中' : aiStatus === 'ready' ? '百炼可用' : aiStatus === 'fallback' ? '已回退本地规则' : '离线可用'}</span><button type="button" disabled={!aiConfigured || aiStatus === 'running' || !canAnalyze} onClick={() => void runAiAnalysis()}>{aiStatus === 'running' ? '分析中…' : '运行百炼增强'}</button></div>
+    </div>
+    {analysisStage && <div className="analysis-progress" role="status"><div><strong>正在构建证据化报告</strong><span>{analysisStages.find((item) => item.id === analysisStage)?.label}</span></div><ol>{analysisStages.map((stage) => <li key={stage.id} className={analysisStages.findIndex((item) => item.id === stage.id) <= analysisStages.findIndex((item) => item.id === analysisStage) ? 'complete' : ''}><i />{stage.label}</li>)}</ol></div>}
+    {analysisError && <p className="analysis-notice" role="alert">{analysisError}</p>}
+    {activeStep === 'data' && <DataPreparation quality={report.dataQuality} sourceLabel={sourceLabel} error={importError} canAnalyze={canAnalyze} onFile={(file) => void handleCsvFile(file)} onReset={resetDemo} onAnalyze={startAnalysisProgress} />}
+    {activeStep === 'opportunity' && <DecisionOverview report={report} marketScope={marketScope} snapshots={competitorSnapshots} price={price} landedCost={landedCost} pricing={pricing} onPrice={(value) => setPrice(Math.max(0.01, value || 0.01))} onCost={(value) => setLandedCost(Math.max(0, value || 0))} onOpenTheme={openTheme} onOpenScore={openScore} onOpenRisk={openRisk} />}
+    {activeStep === 'evidence' && <EvidenceWorkspace report={report} onOpenTheme={openTheme} onOpenMarket={openMarketEvidence} onOpenRisk={openRisk} />}
+    {activeStep === 'report' && <ReportView report={report} sourceLabel={sourceLabel} onExport={exportReport} onPrint={() => window.print()} onBack={() => setActiveStep('data')} />}
+    <EvidenceDrawer selection={selection} onClose={() => setSelection(null)} />
+  </WorkspaceShell>
 }

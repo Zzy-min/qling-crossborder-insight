@@ -57,6 +57,49 @@ export interface ScoreBreakdown {
   compliancePenalty: number
 }
 
+export interface DataQualitySummary {
+  totalReviews: number
+  verifiedPurchaseRate: number
+  timeRange: { from: string; to: string } | null
+  linkedProducts: number
+  deduplicatedCount: number
+  marketCoverage: Array<'US' | 'EU'>
+  privacyCheck: 'passed'
+}
+
+export interface EvidenceCoverageSummary {
+  totalClaims: number
+  claimsWithEvidence: number
+  coverageRate: number
+  reviewEvidenceCount: number
+  productEvidenceCount: number
+  policyEvidenceCount: number
+  missingClaimIds: string[]
+}
+
+export type ScoreKey = keyof ScoreBreakdown
+
+export interface ScoreContribution {
+  key: ScoreKey
+  label: string
+  rawScore: number
+  weight: number
+  direction: 'add' | 'subtract'
+  weightedContribution: number
+}
+
+export interface DecisionAction {
+  id: string
+  category: 'product' | 'market' | 'compliance'
+  priority: 'high' | 'medium' | 'low'
+  title: string
+  rationale: string
+  evidenceRecordIds: string[]
+  humanReviewRequired: boolean
+}
+
+export type AnalysisStage = 'validation' | 'themes' | 'binding' | 'scoring' | 'compliance' | 'report'
+
 export interface ComplianceRisk {
   id: string
   market: 'US' | 'EU'
@@ -74,6 +117,10 @@ export interface InsightReport {
   recommendation: string
   generatedAt: string
   providerMode: ProviderMode
+  dataQuality: DataQualitySummary
+  evidenceCoverage: EvidenceCoverageSummary
+  scoreContributions: ScoreContribution[]
+  actions: DecisionAction[]
 }
 
 export type ProviderMode = 'fixture' | 'mock' | 'bailian'

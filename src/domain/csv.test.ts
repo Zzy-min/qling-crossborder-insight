@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CsvValidationError, parseReviewCsv } from './csv'
+import { CsvValidationError, parseReviewCsv, parseReviewCsvDetailed } from './csv'
 
 const header = 'reviewId,productId,locale,rating,title,body,reviewedAt,verifiedPurchase,sourceUrl'
 
@@ -24,6 +24,7 @@ describe('parseReviewCsv', () => {
   it('deduplicates reviews by reviewId', () => {
     const row = 'r1,p1,en-US,5,Good,Text,2026-07-01,true,https://example.com/r1'
     expect(parseReviewCsv(`${header}\n${row}\n${row}`)).toHaveLength(1)
+    expect(parseReviewCsvDetailed(`${header}\n${row}\n${row}`).deduplicatedCount).toBe(1)
   })
 
   it('rejects conflicting rows that reuse a reviewId', () => {
