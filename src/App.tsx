@@ -70,7 +70,7 @@ export function App() {
   async function handleCsvFile(file: File | undefined) {
     if (!file) return
     try {
-      const reviews = parseReviewCsv(await file.text())
+      const reviews = parseReviewCsv(await file.text(), new Set(sampleDataset.products.map((product) => product.productId)))
       setDataset({ ...sampleDataset, reviews })
       setSourceLabel(`本地 CSV · ${file.name}`)
       setError('')

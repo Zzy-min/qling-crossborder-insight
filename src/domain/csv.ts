@@ -80,7 +80,7 @@ function parseBoolean(value: string, row: number): boolean {
   throw new CsvValidationError(row, 'verifiedPurchase', '必须为 true 或 false')
 }
 
-export function parseReviewCsv(csv: string): ReviewRow[] {
+export function parseReviewCsv(csv: string, allowedProductIds?: ReadonlySet<string>): ReviewRow[] {
   const lines = csv.replace(/^\uFEFF/, '').split(/\r?\n/).filter((line) => line.trim())
   if (lines.length < 2) throw new Error('CSV 至少需要表头和一行数据')
 
@@ -117,6 +117,9 @@ export function parseReviewCsv(csv: string): ReviewRow[] {
     if (!result.success) {
       const issue = result.error.issues[0]
       throw new CsvValidationError(rowNumber, String(issue?.path[0] ?? 'unknown'), issue?.message ?? '格式无效')
+    }
+    if (allowedProductIds && !allowedProductIds.has(result.data.productId)) {
+      throw new CsvValidationError(rowNumber, 'productId', `未在当前商品数据中找到: ${result.data.productId}`)
     }
     if (!uniqueRows.has(result.data.reviewId)) uniqueRows.set(result.data.reviewId, result.data)
   })

@@ -25,5 +25,9 @@ describe('parseReviewCsv', () => {
     const row = 'r1,p1,en-US,5,Good,Text,2026-07-01,true,https://example.com/r1'
     expect(parseReviewCsv(`${header}\n${row}\n${row}`)).toHaveLength(1)
   })
-})
 
+  it('rejects reviews that reference products outside the allowed dataset', () => {
+    expect(() => parseReviewCsv(`${header}\nr1,unknown-product,en-US,2,Hot,Text,2026-07-01,true,fixture:r1`, new Set(['p1'])))
+      .toThrowError(new CsvValidationError(2, 'productId', '未在当前商品数据中找到: unknown-product'))
+  })
+})

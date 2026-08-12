@@ -41,6 +41,17 @@ test('invalid personal-data CSV is rejected with a precise message', async ({ pa
   await expect(page.getByRole('alert')).toContainText('不接受个人信息字段: email')
 })
 
+test('CSV with an unknown product reference is rejected', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('input[type=file]').setInputFiles({
+    name: 'unknown-product.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('reviewId,productId,locale,rating,title,body,reviewedAt,verifiedPurchase,sourceUrl\nr1,missing-product,en-US,2,Hot,Text,2026-07-01,true,fixture:r1'),
+  })
+  await expect(page.getByRole('alert')).toContainText('第 2 行 productId: 未在当前商品数据中找到: missing-product')
+  await expect(page.getByText('当前：内置公开演示样例')).toBeVisible()
+})
+
 test('mobile layout has no horizontal overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
