@@ -10,6 +10,7 @@ try {
   if (-not (Test-Path -LiteralPath $resultPath)) { throw "Desktop exited without a smoke result (exit $($process.ExitCode))" }
   $result = Get-Content -LiteralPath $resultPath -Raw | ConvertFrom-Json
   if (-not $result.loaded) { throw "Desktop failed to load: $($result.error)" }
+  if (-not $result.renderReady) { throw "Desktop loaded HTML but the offline React experience did not become ready: $($result.rendered | ConvertTo-Json -Compress)" }
   if ($result.url -notlike 'file://*index.html*') { throw "Unexpected desktop URL: $($result.url)" }
   $result | ConvertTo-Json -Compress
 } finally {

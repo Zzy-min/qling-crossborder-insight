@@ -8,7 +8,7 @@
 | 本地百炼代理安全边界 | `npm run test:server` | 全部通过且无真实网络调用 |
 | 演示主路径 | `npm run test:e2e` | CSV 导入、隐私拦截、定价、导出、手机宽度全部通过 |
 | 类型与生产资源 | `npm run build` | TypeScript 与 Vite 构建成功 |
-| 离线桌面目录 | `npm run build:desktop:verify && npm run smoke:desktop` | 生成隔离的 `desktop-verify/win-unpacked`，打包 EXE 加载生产 `index.html` 后自动回报成功 |
+| 离线桌面目录 | `npm run build:desktop:verify && npm run smoke:desktop` | 打包 EXE 加载生产 `index.html`，并实际渲染首屏标题、机会指数、证据区和未配置代理的离线状态 |
 
 ## 已验证边界
 
