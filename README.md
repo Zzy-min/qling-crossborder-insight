@@ -23,6 +23,8 @@ npm run eval
 
 `npm run eval` 会评估 200 例机器播种样例并生成本地 JSON 报告。机器播种结果不等同于人工标注结论；人工复核状态见 `docs/evaluation/human-review.md`。
 
+`npm run prepare:submission` 会从生产构建重新生成初赛截图、材料 ZIP 和 SHA-256 清单，并检查 ZIP 不含环境文件、依赖目录、日志或构建缓存。产物状态始终为草稿，不会执行官网提交。
+
 ## 可选百炼代理
 
 百炼密钥只配置在本地服务端环境变量 `BAILIAN_API_KEY`，不得写入前端或提交到 Git。未配置时 `/api/analyze` 明确返回 503，离线样例仍可正常使用。

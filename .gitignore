@@ -2,10 +2,12 @@ node_modules/
 dist/
 release/
 release-verify/
+desktop-verify/
 coverage/
 test-results/
 playwright-report/
 artifacts/evaluation/golden-report.json
+artifacts/submission/
 .env
 .env.*
 !.env.example
