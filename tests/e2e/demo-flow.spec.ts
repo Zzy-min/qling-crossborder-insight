@@ -52,6 +52,21 @@ test('CSV with an unknown product reference is rejected', async ({ page }) => {
   await expect(page.getByText('当前：内置公开演示样例')).toBeVisible()
 })
 
+test('conflicting duplicate review IDs are rejected without replacing the report', async ({ page }) => {
+  await page.goto('/')
+  const rows = [
+    'r1,gan-65w-a,en-US,5,Good,First text,2026-07-01,true,fixture:r1',
+    'r1,gan-65w-a,en-US,1,Bad,Different text,2026-07-02,true,fixture:r1-copy',
+  ].join('\n')
+  await page.locator('input[type=file]').setInputFiles({
+    name: 'conflict.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(`reviewId,productId,locale,rating,title,body,reviewedAt,verifiedPurchase,sourceUrl\n${rows}`),
+  })
+  await expect(page.getByRole('alert')).toContainText('第 3 行 reviewId: 与第 2 行重复但内容不一致: r1')
+  await expect(page.getByText('当前：内置公开演示样例')).toBeVisible()
+})
+
 test('mobile layout has no horizontal overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')

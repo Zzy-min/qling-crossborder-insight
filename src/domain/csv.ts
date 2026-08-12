@@ -81,8 +81,10 @@ function parseBoolean(value: string, row: number): boolean {
 }
 
 export function parseReviewCsv(csv: string, allowedProductIds?: ReadonlySet<string>): ReviewRow[] {
+  if ([...csv].length > 1_000_000) throw new Error('CSV 文件不得超过 1,000,000 个字符')
   const lines = csv.replace(/^\uFEFF/, '').split(/\r?\n/).filter((line) => line.trim())
   if (lines.length < 2) throw new Error('CSV 至少需要表头和一行数据')
+  if (lines.length - 1 > 1000) throw new Error('CSV 最多支持 1,000 行评论')
 
   const headers = parseCsvLine(lines[0] ?? '')
   const forbidden = headers.find((header) => personalDataColumns.has(header))
@@ -93,9 +95,14 @@ export function parseReviewCsv(csv: string, allowedProductIds?: ReadonlySet<stri
   }
 
   const uniqueRows = new Map<string, ReviewRow>()
+  const firstRowByReviewId = new Map<string, number>()
   lines.slice(1).forEach((line, index) => {
     const rowNumber = index + 2
     const cells = parseCsvLine(line)
+    const oversizedCellIndex = cells.findIndex((cell) => [...cell].length > 5000)
+    if (oversizedCellIndex >= 0) {
+      throw new CsvValidationError(rowNumber, headers[oversizedCellIndex] ?? `column-${oversizedCellIndex + 1}`, '单元格不得超过 5,000 个字符')
+    }
     const raw = Object.fromEntries(headers.map((header, cellIndex) => [header, cells[cellIndex] ?? '']))
     const rating = Number(raw.rating)
     if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
@@ -121,7 +128,14 @@ export function parseReviewCsv(csv: string, allowedProductIds?: ReadonlySet<stri
     if (allowedProductIds && !allowedProductIds.has(result.data.productId)) {
       throw new CsvValidationError(rowNumber, 'productId', `未在当前商品数据中找到: ${result.data.productId}`)
     }
-    if (!uniqueRows.has(result.data.reviewId)) uniqueRows.set(result.data.reviewId, result.data)
+    const existing = uniqueRows.get(result.data.reviewId)
+    if (existing && JSON.stringify(existing) !== JSON.stringify(result.data)) {
+      throw new CsvValidationError(rowNumber, 'reviewId', `与第 ${firstRowByReviewId.get(result.data.reviewId)} 行重复但内容不一致: ${result.data.reviewId}`)
+    }
+    if (!existing) {
+      uniqueRows.set(result.data.reviewId, result.data)
+      firstRowByReviewId.set(result.data.reviewId, rowNumber)
+    }
   })
 
   return [...uniqueRows.values()]
