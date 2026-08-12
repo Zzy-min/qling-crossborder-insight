@@ -1,27 +1,29 @@
 import { app, BrowserWindow, shell } from 'electron'
+import { writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { externalNavigationAction, windowOptions } from './window-policy.mjs'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 
 function createWindow() {
-  const window = new BrowserWindow({
-    width: 1440,
-    height: 960,
-    minWidth: 1024,
-    minHeight: 720,
-    backgroundColor: '#f4f1ea',
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  })
+  const window = new BrowserWindow(windowOptions)
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https://')) void shell.openExternal(url)
-    return { action: 'deny' }
+    const result = externalNavigationAction(url)
+    if (result.openExternal) void shell.openExternal(url)
+    return { action: result.action }
   })
-  void window.loadFile(join(root, 'dist', 'index.html'))
+  const load = window.loadFile(join(root, 'dist', 'index.html'))
+  const smokePath = process.env.QLING_DESKTOP_SMOKE_PATH
+  if (smokePath) {
+    void load.then(async () => {
+      await writeFile(smokePath, `${JSON.stringify({ loaded: true, title: window.getTitle(), url: window.webContents.getURL() })}\n`, { encoding: 'utf8', flag: 'wx' })
+      app.quit()
+    }).catch(async (error) => {
+      await writeFile(smokePath, `${JSON.stringify({ loaded: false, error: error instanceof Error ? error.message : String(error) })}\n`, { encoding: 'utf8', flag: 'wx' })
+      app.exit(1)
+    })
+  }
 }
 
 app.whenReady().then(() => {
