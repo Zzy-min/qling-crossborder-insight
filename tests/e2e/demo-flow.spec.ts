@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 test('competition demo flow works from CSV import to evidence export', async ({ page }) => {
@@ -16,6 +17,18 @@ test('competition demo flow works from CSV import to evidence export', async ({ 
   await page.getByRole('button', { name: '导出证据报告' }).click()
   const download = await downloadPromise
   expect(download.suggestedFilename()).toMatch(/^qling-insight-\d{4}-\d{2}-\d{2}\.json$/)
+  const downloadPath = await download.path()
+  expect(downloadPath).not.toBeNull()
+  const payload = JSON.parse(await readFile(downloadPath!, 'utf8'))
+  expect(payload.schemaVersion).toBe('1.0')
+  expect(payload.marketScope).toBe('BOTH')
+  expect(payload.sourceLabel).toBe('本地 CSV · reviews-template.csv')
+  expect(payload.report.themes.every((theme: { evidence: unknown[] }) => theme.evidence.length > 0)).toBe(true)
+  expect(payload.report.complianceRisks.every((risk: { humanReviewRequired: boolean; evidence: unknown[] }) => risk.humanReviewRequired && risk.evidence.length > 0)).toBe(true)
+  expect(payload.competitorSnapshots.map((snapshot: { currency: string }) => snapshot.currency).sort()).toEqual(['EUR', 'USD'])
+  expect(payload.pricingScenario.currency).toBe('USD')
+  expect(payload.pricingScenario.fixedLaunchCost).toBe(2500)
+  expect(payload.disclaimer).toContain('不构成法律、财务或销量预测')
 })
 
 test('invalid personal-data CSV is rejected with a precise message', async ({ page }) => {

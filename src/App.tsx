@@ -100,7 +100,7 @@ export function App() {
       marketScope,
       report,
       competitorSnapshots,
-      pricingScenario: pricing,
+      pricingScenario: pricing ? { currency: pricingCurrency, ...pricing } : null,
       disclaimer: '本报告为信息辅助，不构成法律、财务或销量预测。',
     }
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }))
