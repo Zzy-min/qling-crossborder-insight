@@ -49,6 +49,7 @@ const materialFiles = [
   'docs/submission/preliminary-submission.md',
   'docs/submission/demo-script.md',
   'docs/submission/submission-evidence.md',
+  'docs/submission/form-fields.json',
   'docs/hackathon-build/architecture.md',
   'docs/hackathon-build/acceptance.md',
   'docs/research/policy-sources.md',

@@ -25,6 +25,8 @@ npm run eval
 
 `npm run prepare:submission` 会从生产构建重新生成初赛截图、材料 ZIP 和 SHA-256 清单，并检查 ZIP 不含环境文件、依赖目录、日志或构建缓存。产物状态始终为草稿，不会执行官网提交。
 
+`npm run validate:submission` 会检查可粘贴表单字段并输出逐字段字符数。它始终把 `readyToSubmit` 保持为 false，直到登录后的字段上限、个人信息和最终确认由人工核对。
+
 ## 可选百炼代理
 
 百炼密钥只配置在本地服务端环境变量 `BAILIAN_API_KEY`，不得写入前端或提交到 Git。未配置时 `/api/analyze` 明确返回 503，离线样例仍可正常使用。

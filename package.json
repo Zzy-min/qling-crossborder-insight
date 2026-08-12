@@ -19,7 +19,8 @@
     "test:watch": "vitest",
     "check": "npm run test && npm run test:server && npm run build",
     "check:all": "npm run check && npm run eval && npm run test:e2e",
-    "prepare:submission": "npm run build && node scripts/prepare-submission.mjs && node scripts/verify-submission.mjs"
+    "prepare:submission": "npm run build && node scripts/prepare-submission.mjs && node scripts/verify-submission.mjs",
+    "validate:submission": "node scripts/validate-submission-fields.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",
