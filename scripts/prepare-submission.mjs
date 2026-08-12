@@ -34,7 +34,9 @@ try {
   await desktop.goto(`http://127.0.0.1:${port}`, { waitUntil: 'networkidle' })
   await desktop.screenshot({ path: join(screenshots, '01-overview-desktop.png'), fullPage: true })
   await desktop.locator('input[type=file]').setInputFiles(resolve(root, 'public/samples/reviews-template.csv'))
-  await desktop.getByText('本地 CSV · reviews-template.csv').waitFor()
+  await desktop.getByRole('strong').filter({ hasText: '本地 CSV · reviews-template.csv' }).waitFor()
+  await desktop.getByRole('button', { name: /开始分析/ }).click()
+  await desktop.getByRole('heading', { name: '市场机会，不止一个分数。' }).waitFor()
   await desktop.screenshot({ path: join(screenshots, '02-csv-evidence-report.png'), fullPage: true })
 
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 })
