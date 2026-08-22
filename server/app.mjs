@@ -3,7 +3,16 @@ import { validateDataset } from './dataset-schema.mjs'
 
 const MAX_BODY_BYTES = 1_000_000
 
-export function createApiServer({ apiKey, fetcher = fetch, endpoint = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions' }) {
+const DEFAULT_BASE_URL = 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1'
+const DEFAULT_MODEL = 'qwen3.7-plus'
+
+export function createApiServer({
+  apiKey,
+  fetcher = fetch,
+  baseUrl = process.env.BAILIAN_BASE_URL || DEFAULT_BASE_URL,
+  model = process.env.BAILIAN_MODEL || DEFAULT_MODEL,
+}) {
+  const endpoint = `${baseUrl.replace(/\/+$/, '')}/chat/completions`
   return createServer(async (request, response) => {
     const origin = request.headers.origin
     const localOrigin = origin && /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin)
@@ -57,7 +66,7 @@ export function createApiServer({ apiKey, fetcher = fetch, endpoint = 'https://d
           method: 'POST',
           headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: process.env.BAILIAN_MODEL || 'qwen-plus',
+            model,
             response_format: { type: 'json_object' },
             messages: [
               { role: 'system', content: 'Return JSON only. Cite only reviewIds and policyIds supplied by the user.' },

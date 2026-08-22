@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "dev:api": "node server/index.mjs",
+    "dev:api": "node --env-file-if-exists=.env server/index.mjs",
     "build": "tsc -b && vite build",
     "build:desktop": "npm run build && electron-builder --dir",
     "build:desktop:verify": "npm run build && electron-builder --dir --config.directories.output=desktop-verify",

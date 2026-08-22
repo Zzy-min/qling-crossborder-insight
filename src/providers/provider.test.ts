@@ -25,6 +25,22 @@ describe('analysis provider contract', () => {
     expect(result.complianceRisks[0].humanReviewRequired).toBe(true)
   })
 
+  it('Bailian provider defaults to the token-plan endpoint and qwen3.7-plus', async () => {
+    let capturedUrl = ''
+    let capturedModel = ''
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      capturedUrl = String(input)
+      capturedModel = JSON.parse(String(init?.body)).model
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+        themes: [{ id: 'thermal', label: '发热', sentiment: 'negative', reviewIds: ['review-hot-1'] }],
+        complianceRisks: [],
+      }) } }] }), { status: 200 })
+    })
+    await new BailianProvider({ apiKey: 'test-only', fetcher }).analyze(sampleDataset)
+    expect(capturedUrl).toBe('https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions')
+    expect(capturedModel).toBe('qwen3.7-plus')
+  })
+
   it('rejects invented evidence IDs', async () => {
     const fetcher = vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
       themes: [{ id: 'made-up', label: '虚构', sentiment: 'negative', reviewIds: ['unknown'] }],

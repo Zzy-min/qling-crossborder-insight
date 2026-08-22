@@ -134,8 +134,8 @@ export class BailianProvider implements AnalysisProvider {
 
   constructor(private readonly options: BailianProviderOptions) {
     if (!options.apiKey.trim()) throw new Error('Bailian API key is required')
-    this.endpoint = options.endpoint ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'
-    this.model = options.model ?? 'qwen-plus'
+    this.endpoint = options.endpoint ?? 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions'
+    this.model = options.model ?? 'qwen3.7-plus'
     this.fetcher = options.fetcher ?? fetch
   }
 

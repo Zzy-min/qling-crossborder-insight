@@ -113,3 +113,50 @@ test('maps upstream network failures to 502', async () => {
   assert.equal(response.status, 502)
   assert.deepEqual(await response.json(), { error: 'provider_unavailable' })
 })
+
+const MINIMAL_BODY = JSON.stringify({ products: [], reviews: [], policies: [] })
+
+async function captureUpstreamRequest(options) {
+  let capturedUrl
+  let capturedBody
+  const fetcher = async (url, requestOptions) => {
+    capturedUrl = url
+    capturedBody = JSON.parse(requestOptions.body)
+    return new Response('{"choices":[]}', { status: 200 })
+  }
+  const base = await start({ apiKey: 'server-secret', fetcher, ...options })
+  const response = await fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: MINIMAL_BODY })
+  assert.equal(response.status, 200)
+  return { capturedUrl, capturedBody }
+}
+
+test('defaults to the token-plan endpoint and qwen3.7-plus', async () => {
+  const savedBaseUrl = process.env.BAILIAN_BASE_URL
+  const savedModel = process.env.BAILIAN_MODEL
+  delete process.env.BAILIAN_BASE_URL
+  delete process.env.BAILIAN_MODEL
+  try {
+    const { capturedUrl, capturedBody } = await captureUpstreamRequest({})
+    assert.equal(capturedUrl, 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions')
+    assert.equal(capturedBody.model, 'qwen3.7-plus')
+    assert.equal(capturedBody.response_format.type, 'json_object')
+  } finally {
+    if (savedBaseUrl !== undefined) process.env.BAILIAN_BASE_URL = savedBaseUrl
+    if (savedModel !== undefined) process.env.BAILIAN_MODEL = savedModel
+  }
+})
+
+test('appends the chat completions path to a base url without a trailing slash', async () => {
+  const { capturedUrl } = await captureUpstreamRequest({ baseUrl: 'https://example.com/v1' })
+  assert.equal(capturedUrl, 'https://example.com/v1/chat/completions')
+})
+
+test('normalizes trailing slashes in a base url', async () => {
+  const { capturedUrl } = await captureUpstreamRequest({ baseUrl: 'https://example.com/v1/' })
+  assert.equal(capturedUrl, 'https://example.com/v1/chat/completions')
+})
+
+test('forwards the configured model to the upstream request body', async () => {
+  const { capturedBody } = await captureUpstreamRequest({ model: 'deepseek-v4-pro' })
+  assert.equal(capturedBody.model, 'deepseek-v4-pro')
+})
