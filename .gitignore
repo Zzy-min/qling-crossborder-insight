@@ -9,6 +9,7 @@ playwright-report/
 artifacts/evaluation/golden-report.json
 artifacts/evaluation/human-review.json
 artifacts/evaluation/human-review/
+artifacts/evaluation/single-review/
 artifacts/submission/
 .env
 .env.*
