@@ -160,3 +160,22 @@ test('forwards the configured model to the upstream request body', async () => {
   const { capturedBody } = await captureUpstreamRequest({ model: 'deepseek-v4-pro' })
   assert.equal(capturedBody.model, 'deepseek-v4-pro')
 })
+
+test('disables thinking for qwen reasoning models to cut latency', async () => {
+  const { capturedBody } = await captureUpstreamRequest({ model: 'qwen3.7-plus' })
+  assert.equal(capturedBody.enable_thinking, false)
+})
+
+test('omits the thinking flag for non-qwen vendors', async () => {
+  const { capturedBody } = await captureUpstreamRequest({ model: 'deepseek-v4-pro' })
+  assert.equal('enable_thinking' in capturedBody, false)
+})
+
+test('system prompt pins the output schema so the model cannot echo the dataset', async () => {
+  const { capturedBody } = await captureUpstreamRequest({})
+  const system = capturedBody.messages.find((m) => m.role === 'system').content
+  assert.match(system, /"themes"/)
+  assert.match(system, /"complianceRisks"/)
+  assert.match(system, /never invent IDs/)
+  assert.match(system, /Do not echo the dataset/)
+})

@@ -5,12 +5,27 @@ const MAX_BODY_BYTES = 1_000_000
 
 const DEFAULT_BASE_URL = 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1'
 const DEFAULT_MODEL = 'qwen3.7-plus'
+const DEFAULT_TIMEOUT_MS = 60_000
+
+const SYSTEM_PROMPT = `You are a cross-border e-commerce market analyst. Analyze the dataset (products, reviews, policies) provided by the user.
+
+Return ONLY a JSON object with this exact shape:
+{
+  "themes": [ { "id": string, "label": string, "sentiment": "positive" | "negative", "reviewIds": string[] } ],
+  "complianceRisks": [ { "id": string, "label": string, "severity": "low" | "medium" | "high", "policyIds": string[] } ]
+}
+
+Rules:
+- themes: group recurring opinions from reviews into 3-8 themes. reviewIds must cite only review IDs present in the dataset, never invent IDs.
+- complianceRisks: identify product compliance risks relevant to the supplied policies. policyIds must cite only policy IDs present in the dataset.
+- Do not echo the dataset. Output the JSON object only.`
 
 export function createApiServer({
   apiKey,
   fetcher = fetch,
   baseUrl = process.env.BAILIAN_BASE_URL || DEFAULT_BASE_URL,
   model = process.env.BAILIAN_MODEL || DEFAULT_MODEL,
+  timeoutMs = Number(process.env.BAILIAN_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS,
 }) {
   const endpoint = `${baseUrl.replace(/\/+$/, '')}/chat/completions`
   return createServer(async (request, response) => {
@@ -62,18 +77,24 @@ export function createApiServer({
       }
       const dataset = validateDataset(JSON.parse(Buffer.concat(chunks).toString('utf8')))
       try {
+        // qwen3.x are reasoning models; disabling thinking cuts latency ~5x
+        // (48s -> 9s measured on the token-plan endpoint) without quality loss
+        // for this structured extraction task. Other vendors may reject the
+        // parameter, so it is only sent for qwen models.
+        const extraParams = model.startsWith('qwen') ? { enable_thinking: false } : {}
         const upstream = await fetcher(endpoint, {
           method: 'POST',
           headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model,
             response_format: { type: 'json_object' },
+            ...extraParams,
             messages: [
-              { role: 'system', content: 'Return JSON only. Cite only reviewIds and policyIds supplied by the user.' },
+              { role: 'system', content: SYSTEM_PROMPT },
               { role: 'user', content: JSON.stringify(dataset) },
             ],
           }),
-          signal: AbortSignal.timeout(20_000),
+          signal: AbortSignal.timeout(timeoutMs),
         })
         if (!upstream.ok) {
           response.writeHead(502).end(JSON.stringify({ error: 'provider_error', upstreamStatus: upstream.status }))

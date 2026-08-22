@@ -1,0 +1,116 @@
+{
+  "products": [
+    {
+      "productId": "p-anker-65w",
+      "title": "Anker 65W USB-C Charger",
+      "brand": "Anker",
+      "market": "US",
+      "currency": "USD",
+      "price": 39.99,
+      "rating": 4.5,
+      "reviewCount": 1820,
+      "capturedAt": "2026-08-01",
+      "sourceUrl": "https://example.com/anker-65w"
+    },
+    {
+      "productId": "p-ugreen-45w",
+      "title": "UGREEN 45W GaN Charger",
+      "brand": "UGREEN",
+      "market": "US",
+      "currency": "USD",
+      "price": 25.99,
+      "rating": 4.3,
+      "reviewCount": 940,
+      "capturedAt": "2026-08-01",
+      "sourceUrl": "https://example.com/ugreen-45w"
+    }
+  ],
+  "reviews": [
+    {
+      "reviewId": "r-001",
+      "productId": "p-anker-65w",
+      "locale": "en-US",
+      "rating": 5,
+      "title": "Fast and reliable",
+      "body": "Charges my laptop fully in about an hour, very compact for travel.",
+      "reviewedAt": "2026-07-15",
+      "verifiedPurchase": true,
+      "sourceUrl": "https://example.com/r/001"
+    },
+    {
+      "reviewId": "r-002",
+      "productId": "p-anker-65w",
+      "locale": "en-US",
+      "rating": 2,
+      "title": "Runs hot",
+      "body": "Gets noticeably hot when charging at full 65W, worried about safety.",
+      "reviewedAt": "2026-07-18",
+      "verifiedPurchase": true,
+      "sourceUrl": "https://example.com/r/002"
+    },
+    {
+      "reviewId": "r-003",
+      "productId": "p-anker-65w",
+      "locale": "en-US",
+      "rating": 4,
+      "title": "Good but pricy",
+      "body": "Works great with USB-C PD but costs more than comparable GaN chargers.",
+      "reviewedAt": "2026-07-20",
+      "verifiedPurchase": false,
+      "sourceUrl": "https://example.com/r/003"
+    },
+    {
+      "reviewId": "r-004",
+      "productId": "p-ugreen-45w",
+      "locale": "en-US",
+      "rating": 1,
+      "title": "Stopped working after 2 weeks",
+      "body": "Dead after two weeks of light use. Support sent a replacement.",
+      "reviewedAt": "2026-07-10",
+      "verifiedPurchase": true,
+      "sourceUrl": "https://example.com/r/004"
+    },
+    {
+      "reviewId": "r-005",
+      "productId": "p-ugreen-45w",
+      "locale": "en-US",
+      "rating": 5,
+      "title": "Great value",
+      "body": "Half the price of big brands and charges my phone super fast.",
+      "reviewedAt": "2026-07-22",
+      "verifiedPurchase": true,
+      "sourceUrl": "https://example.com/r/005"
+    },
+    {
+      "reviewId": "r-006",
+      "productId": "p-ugreen-45w",
+      "locale": "en-US",
+      "rating": 3,
+      "title": "Cable included is short",
+      "body": "The bundled USB-C cable is only 1m, too short for desk use.",
+      "reviewedAt": "2026-07-25",
+      "verifiedPurchase": true,
+      "sourceUrl": "https://example.com/r/006"
+    }
+  ],
+  "policies": [
+    {
+      "policyId": "pol-fcc-2026",
+      "market": "US",
+      "authority": "FCC",
+      "topic": "FCC Part 15 labeling for external power supplies",
+      "effectiveAt": "2026-01-01",
+      "summary": "External AC adapters sold in the US must carry FCC Part 15 consumer alert labeling and updated supplier Declaration of Conformity documentation.",
+      "sourceUrl": "https://example.com/policy/fcc-2026"
+    },
+    {
+      "policyId": "pol-doe-vi",
+      "market": "US",
+      "authority": "DOE",
+      "topic": "Level VI energy efficiency standard",
+      "effectiveAt": "2026-03-01",
+      "summary": "External power supplies must meet DOE Level VI efficiency requirements; non-compliant listings risk removal from major US marketplaces.",
+      "sourceUrl": "https://example.com/policy/doe-vi"
+    }
+  ]
+}
