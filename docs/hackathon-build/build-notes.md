@@ -22,3 +22,5 @@
 - **服务端加固**：envelope 校验 + 2MB 响应上限；并发保护（MAX_INFLIGHT=2 → 429）；脱敏访问日志；顶层错误兜底防崩溃；`SYSTEM_PROMPT` 导出去重；`smoke:real` 正式入口。server 测试 23→32。commit `52f73b1`。
 - **组件级测试基建**：jsdom + @testing-library/react（文件级注解，不影响既有 48 例）；新增 12 例（App 状态机 4、EvidenceDrawer 无障碍 4、DataPreparation 错误展示 4）。vitest 48→60。commit `47c2a39`。
 - **真实模型合同评测**：12 例有区分度的合成样例（多评论噪声/弱信号/负样本/对抗 ID），走 8787 代理真实调用 qwen3.7-plus。12/12 通过，零幻觉，37/37 主题接地，延迟 3.8–8.6s。commit `09cf7ae`。
+- **文档纠错**：architecture 超时口径修正（20s→60s + envelope 信任边界）；prd 端点口径修正（Model Router → Token Plan 兼容模式）；README 重写（价值主张 + 四命令门禁表 + 三层评测口径）；复赛演示脚本；checklist/build-notes 状态同步。commit `02ea0dc`。
+- **收尾全门禁回归**：vitest 60/60 · server 32/32 · build success · golden 200/200 · e2e 14/14 — 共 306 测试 0 失败；密钥扫描 clean；全部 7 commit 推送 GitHub。
