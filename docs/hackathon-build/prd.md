@@ -11,7 +11,7 @@
 - 产品：Qling 出海智察
 - 三项主功能：评论洞察、机会评分、合规预警
 - 两项辅助功能：竞品快照对比、定价情景模拟
-- 核心 AI 能力最终经阿里云百炼 Model Router 调用；当前原型使用显式标注的 fixture provider
+- 核心 AI 能力经阿里云百炼 Token Plan 兼容模式端点调用（模型 `qwen3.7-plus`，`enable_thinking:false`）；初赛时使用显式标注的 fixture provider，复赛已完成真实联调
 - 不做实时爬虫、账户系统、多用户协作或自动法律判断
 
 ## 成功标准

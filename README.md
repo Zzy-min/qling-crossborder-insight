@@ -1,6 +1,8 @@
 # Qling 出海智察
 
-面向中小跨境卖家的可追溯 AI 市场决策工作台。当前为 AI+跨境黑客松初赛原型。
+面向中小跨境卖家的证据约束型 AI 市场决策工作台——把评论、竞品和政策数据变成可追溯到原始记录的进入决策，而不是 AI 摘要。AI 输出必须引用数据集中存在的记录 ID，编造引用会被合同层拒绝。
+
+> CSDN AI+跨境黑客松参赛作品（场景：AI 市场洞察）｜团队：轻灵
 
 ## 演示工作流
 
@@ -11,41 +13,55 @@
 
 内置样例、用户 CSV 与百炼增强状态会被明确区分；fixture 不代表实时市场数据。
 
-## 本地运行
+## 快速开始
+
+**环境要求**：Node.js ≥ 20.6（需要 `--env-file-if-exists` 标志）
 
 ```powershell
 npm install
+
+# 终端 1：启动前端
 npm run dev
+
+# 终端 2（可选）：启动 AI 代理（需配置 .env）
+npm run dev:api
 ```
+
+前端默认运行在 `http://127.0.0.1:5173`，API 代理在 `http://127.0.0.1:8787`。
+未配置 API Key 时前端自动回退到本地确定性分析，不报错。
 
 ## 质量门禁
 
 ```powershell
-npm run check
-npm run test:e2e
-npm run eval
+npm run check          # vitest (60) + server tests (32) + build
+npm run test:e2e       # Playwright (14, 需 Chrome)
+npm run eval           # 黄金集本地规则评测 (200)
+npm run eval:model     # 真实模型合同评测 (12, 需 dev:api + 真实 Key)
+npm run smoke:real     # 真实链路冒烟 (9 项检查, 需 dev:api + 真实 Key)
 ```
 
-当前只使用明确标注的离线样例，不需要 API Key。
+## 评测口径说明
 
-页面提供可下载的 `reviews-template.csv`；端到端门禁覆盖 CSV 导入、隐私字段拒绝、定价变化、证据报告下载与手机端横向溢出。
+| 评测 | 命令 | 性质 | 样本量 |
+|---|---|---|---|
+| 黄金集评测 | `npm run eval` | 本地确定性规则（不涉及模型） | 200 例 |
+| 模型合同评测 | `npm run eval:model` | 真实百炼调用（合同形状 + 零幻觉 + 主题接地） | 12 例 |
+| 人工抽样复核 | 见 `docs/evaluation/human-review.md` | 单人复核 | 40/200 |
 
-`npm run eval` 会评估 200 例机器播种样例并生成本地 JSON 报告。机器播种结果不等同于人工标注结论；人工复核状态见 `docs/evaluation/human-review.md`。
-
-`npm run prepare:submission` 会从生产构建重新生成初赛截图、材料 ZIP 和 SHA-256 清单，并检查 ZIP 不含环境文件、依赖目录、日志或构建缓存。产物状态始终为草稿，不会执行官网提交。
-
-`npm run validate:submission` 会检查表单字段、附件与提交状态并输出逐字段字符数。已提交时它会验证结果页、回执和提交时间证据，同时保持 `readyToSubmit` 为 false，避免重复提交。
+三者互为补充：黄金集证明规则引擎自洽性，模型合同评测证明真实链路可靠性，人工抽样是唯一的人眼看过证据。详见 `docs/evaluation/model-contract-eval.md`。
 
 ## 可选百炼代理
 
-百炼密钥只配置在本地服务端环境变量 `BAILIAN_API_KEY`，不得写入前端或提交到 Git。未配置时 `/api/analyze` 明确返回 503，离线样例仍可正常使用。
+百炼密钥只配置在本地 `.env` 的 `BAILIAN_API_KEY`，不写入前端 bundle、不提交到 Git。未配置时 `/api/analyze` 返回 503，离线样例仍可正常使用。
 
-Web 页面会检测本机代理是否已配置。只有检测成功后“运行百炼增强”按钮才可用；调用失败或模型证据无效时会自动回退到本地确定性报告。
-
-```powershell
-# 先在当前 PowerShell 会话中设置 BAILIAN_API_KEY，不要写入文件
-npm run dev:api
+```ini
+# .env (gitignored)
+BAILIAN_API_KEY=sk-sp-...
+BAILIAN_BASE_URL=https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
+BAILIAN_MODEL=qwen3.7-plus
 ```
+
+Web 页面检测到代理已配置后"运行百炼增强"按钮才可用；调用失败或模型证据无效时自动回退到本地确定性报告并显示重试入口。分析模式由 `/health` 探测决定，不由前端环境变量控制。
 
 ## 离线桌面版
 
@@ -53,4 +69,14 @@ npm run dev:api
 npm run desktop
 ```
 
-该命令加载本地生产构建，不依赖网络或 API Key。`npm run build:desktop` 可生成未安装的桌面打包目录。
+加载本地生产构建，不依赖网络或 API Key。`npm run build:desktop` 可生成未安装的桌面打包目录。
+
+## 项目结构
+
+```
+src/          前端（React 19 + TypeScript + Vite 7）
+server/       AI 代理（node:http，转发阿里云百炼 Token Plan）
+scripts/      评测与冒烟脚本
+tests/e2e/    Playwright 端到端测试
+docs/         架构说明、PRD、评测报告、演示脚本
+```

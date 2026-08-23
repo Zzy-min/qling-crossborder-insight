@@ -8,8 +8,8 @@
 
 | 门禁 | 命令 | 结果 |
 |---|---|---|
-| 前端单元测试 | `npm run test` | ✅ 38 passed |
-| 服务端测试 | `npm run test:server` | ✅ 16 passed |
+| 前端单元测试 | `npm run test` | ✅ 60 passed |
+| 服务端测试 | `npm run test:server` | ✅ 32 passed |
 | 端到端 | `npm run test:e2e` | ✅ 14 passed |
 | 类型与构建 | `npm run build` | ✅ 成功（需先清空旧 `dist`，本机沙箱回收机制会阻断 vite 的 emptyOutDir） |
 | 页面渲染 | 本地起静态服务器访问 `/` | ✅ 首屏 HTML 正常 |
@@ -25,10 +25,11 @@
 - `server/app.mjs:6` 默认 `endpoint = https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions`
 - `server/app.mjs:60` 默认 `model = qwen-plus`
 - `server/index.mjs:5` 创建服务时**不传** endpoint，永远走默认值
-- 赛事发放的 Token Plan Key 的参赛凭证（见 `~/Documents/菜鸟黑客松参赛信息.md`）：
+- 赛事发放的 Token Plan Key 的参赛凭证（见本地参赛信息文档）：
   - 基地址必须为 `https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`
   - 可用模型为 `qwen3.8-max`、`qwen3.7-max`、`qwen3.7-plus` 等，**不含 `qwen-plus`**
 - 后果：直接用参赛 Key 启动 `npm run dev:api` 会命中错误端点/模型，真实联调必然失败。
+- 状态：**已完成**。commit `9cd47fc`。
 
 改动方案：
 
@@ -87,7 +88,7 @@
 |---|---|
 | 初赛未晋级 | 预备期产出（真实联调）本身就是产品收尾，损失趋近于零 |
 | Token Plan 额度被冒烟耗尽 | 最小请求原则 + 调用台账；`qwen3.7-plus` 级别模型优先于 max 级 |
-| Key 泄漏 | 只走会话环境变量；提交前 `git grep` 检查；`~/Documents/菜鸟黑客松参赛信息.md` 明文存 Key，不要移动进任何仓库 |
+| Key 泄漏 | 只走会话环境变量；提交前 `git grep` 检查；参赛凭证文档仅存本地，不移动进任何仓库 |
 | 真实模型输出不稳导致演示翻车 | 演示脚本保留离线回退路径（初赛脚本已有该段落，沿用） |
 
 ## 六、第一步（确认后执行）

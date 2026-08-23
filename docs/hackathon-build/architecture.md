@@ -17,7 +17,8 @@ flowchart LR
 
 - CSV 默认只在浏览器处理；只有用户明确选择百炼模式时才应发送必要字段。
 - `BAILIAN_API_KEY` 只存在于服务端进程环境，前端 bundle、日志和导出报告均不得包含。
-- 本地代理仅监听 `127.0.0.1`，拒绝非本机 Origin、非 JSON、超过 1 MB 的请求，并设置 20 秒超时。
+- 本地代理仅监听 `127.0.0.1`，拒绝非本机 Origin、非 JSON、超过 1 MB 的请求；上游设置 60 秒超时（`BAILIAN_TIMEOUT_MS` 可配），响应体上限 2 MB。并发上限 2（超限返回 429 `busy`）。
+- 服务端对上游响应做 envelope 结构校验（choices[0].message.content 存在且可解析为 themes + complianceRisks 形状），校验失败返回 502 `invalid_provider_response`。完整 zod 合同仍在前端 `materializeModelOutput` 执行，作为最终防线。
 - 模型输出必须引用存在的评论或政策 ID；未知 ID 会中止报告生成。
 - 机会分数是固定公式；合规结论始终要求人工复核。
 - 前端启动时只查询 `/health` 的布尔配置状态；服务端未配置、离线或模型响应无效时，界面保留/恢复 fixture 确定性报告。
