@@ -2,6 +2,13 @@ import assert from 'node:assert/strict'
 import { afterEach, test } from 'node:test'
 import { createApiServer } from './app.mjs'
 
+// A well-formed upstream envelope: choices[0].message.content is a JSON string
+// that itself parses to { themes: [], complianceRisks: [] }. The server
+// validates this minimal shape before forwarding.
+const VALID_ENVELOPE = JSON.stringify({
+  choices: [{ message: { content: JSON.stringify({ themes: [], complianceRisks: [] }) } }],
+})
+
 let server
 afterEach(() => server?.close())
 
@@ -29,7 +36,7 @@ test('server injects authorization without returning it', async () => {
   let authorization
   const fetcher = async (_url, options) => {
     authorization = options.headers.Authorization
-    return new Response('{"choices":[]}', { status: 200 })
+    return new Response(VALID_ENVELOPE, { status: 200 })
   }
   const base = await start({ apiKey: 'server-secret', fetcher })
   const response = await fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"products":[],"reviews":[],"policies":[]}' })
@@ -122,7 +129,7 @@ async function captureUpstreamRequest(options) {
   const fetcher = async (url, requestOptions) => {
     capturedUrl = url
     capturedBody = JSON.parse(requestOptions.body)
-    return new Response('{"choices":[]}', { status: 200 })
+    return new Response(VALID_ENVELOPE, { status: 200 })
   }
   const base = await start({ apiKey: 'server-secret', fetcher, ...options })
   const response = await fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: MINIMAL_BODY })
@@ -178,4 +185,92 @@ test('system prompt pins the output schema so the model cannot echo the dataset'
   assert.match(system, /"complianceRisks"/)
   assert.match(system, /never invent IDs/)
   assert.match(system, /Do not echo the dataset/)
+})
+
+// --- B1: missing request-validation test branches ---
+
+test('rejects non-json content-type with 415', async () => {
+  const base = await start({ apiKey: 'k', fetcher: async () => new Response(VALID_ENVELOPE, { status: 200 }) })
+  const response = await fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: 'whatever' })
+  assert.equal(response.status, 415)
+  assert.deepEqual(await response.json(), { error: 'json_required' })
+})
+
+test('rejects oversized payloads with 413', async () => {
+  const base = await start({ apiKey: 'k', fetcher: async () => new Response(VALID_ENVELOPE, { status: 200 }) })
+  const huge = 'x'.repeat(1_100_000)
+  const response = await fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: huge })
+  assert.equal(response.status, 413)
+  assert.deepEqual(await response.json(), { error: 'payload_too_large' })
+})
+
+test('rejects malformed json body with 400', async () => {
+  const base = await start({ apiKey: 'k', fetcher: async () => new Response(VALID_ENVELOPE, { status: 200 }) })
+  const response = await fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{not valid json' })
+  assert.equal(response.status, 400)
+  assert.deepEqual(await response.json(), { error: 'invalid_request' })
+})
+
+// --- B2: envelope validation (server is not a dumb pipe) ---
+
+test('rejects upstream response with missing content as 502', async () => {
+  const fetcher = async () => new Response('{"choices":[{"message":{}}]}', { status: 200 })
+  const base = await start({ apiKey: 'k', fetcher })
+  const response = await fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: MINIMAL_BODY })
+  assert.equal(response.status, 502)
+  assert.deepEqual(await response.json(), { error: 'invalid_provider_response', reason: 'missing_content' })
+})
+
+test('rejects upstream content that is not json as 502', async () => {
+  const fetcher = async () => new Response(JSON.stringify({ choices: [{ message: { content: 'not json' } }] }), { status: 200 })
+  const base = await start({ apiKey: 'k', fetcher })
+  const response = await fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: MINIMAL_BODY })
+  assert.equal(response.status, 502)
+  assert.deepEqual(await response.json(), { error: 'invalid_provider_response', reason: 'content_not_json' })
+})
+
+test('rejects upstream content with wrong shape as 502', async () => {
+  const badContent = JSON.stringify({ themes: [], complianceRisks: 'not-an-array' })
+  const fetcher = async () => new Response(JSON.stringify({ choices: [{ message: { content: badContent } }] }), { status: 200 })
+  const base = await start({ apiKey: 'k', fetcher })
+  const response = await fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: MINIMAL_BODY })
+  assert.equal(response.status, 502)
+  assert.deepEqual(await response.json(), { error: 'invalid_provider_response', reason: 'wrong_shape' })
+})
+
+test('forwards a valid upstream envelope unchanged to the client', async () => {
+  const fetcher = async () => new Response(VALID_ENVELOPE, { status: 200 })
+  const base = await start({ apiKey: 'k', fetcher })
+  const response = await fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: MINIMAL_BODY })
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), JSON.parse(VALID_ENVELOPE))
+})
+
+// --- B3: concurrency guard + sanitized access log ---
+
+test('rejects the third concurrent request with 429', async () => {
+  // The fetcher hangs forever; the first two requests occupy the in-flight
+  // slots (cap = 2) so the third is rejected immediately with 429.
+  const hang = () => new Promise(() => {})
+  const base = await start({ apiKey: 'k', fetcher: hang, logger: () => {} })
+  const ctrl = new AbortController()
+  const inflight = (signal) => fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: MINIMAL_BODY, signal }).catch(() => {})
+  inflight(ctrl.signal)
+  inflight(ctrl.signal)
+  await new Promise((resolve) => setTimeout(resolve, 60))
+  const rejected = await fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: MINIMAL_BODY })
+  assert.equal(rejected.status, 429)
+  assert.deepEqual(await rejected.json(), { error: 'busy' })
+  ctrl.abort()
+})
+
+test('access log never leaks the api key or dataset content', async () => {
+  const logs = []
+  const base = await start({ apiKey: 'leak-check-key', fetcher: async () => new Response(VALID_ENVELOPE, { status: 200 }), logger: (line) => logs.push(line) })
+  await fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ products: [], reviews: [], policies: [] }) })
+  const joined = logs.join('\n')
+  assert.equal(joined.includes('leak-check-key'), false, 'api key must not appear in logs')
+  assert.equal(joined.includes('Bearer'), false, 'authorization header must not appear in logs')
+  assert.ok(joined.includes('upstream_call'), 'log should record the call event')
+  assert.ok(joined.includes('upstream_done'), 'log should record the completion event')
 })

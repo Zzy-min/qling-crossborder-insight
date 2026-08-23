@@ -1,21 +1,19 @@
 // Compare prompt/param variants for the real analyze request (one-off probe).
-import { readFileSync } from 'node:fs'
+// Reuses SYSTEM_PROMPT from the server so there is no second copy to drift.
+import { existsSync, readFileSync } from 'node:fs'
+import { SYSTEM_PROMPT } from '../server/app.mjs'
 
-const key = readFileSync('.env', 'utf8').match(/BAILIAN_API_KEY=(.+)/)[1].trim()
-const dataset = JSON.parse(readFileSync(new URL('./smoke-dataset.json', import.meta.url), 'utf8'))
-
-const SYSTEM_PROMPT = `You are a cross-border e-commerce market analyst. Analyze the dataset (products, reviews, policies) provided by the user.
-
-Return ONLY a JSON object with this exact shape:
-{
-  "themes": [ { "id": string, "label": string, "sentiment": "positive" | "negative", "reviewIds": string[] } ],
-  "complianceRisks": [ { "id": string, "label": string, "severity": "low" | "medium" | "high", "policyIds": string[] } ]
+if (!existsSync('.env')) {
+  console.error('Missing .env file. Copy .env.example to .env and set BAILIAN_API_KEY.')
+  process.exit(1)
 }
-
-Rules:
-- themes: group recurring opinions from reviews into 3-8 themes. reviewIds must cite only review IDs present in the dataset, never invent IDs.
-- complianceRisks: identify product compliance risks relevant to the supplied policies. policyIds must cite only policy IDs present in the dataset.
-- Do not echo the dataset. Output the JSON object only.`
+const keyMatch = readFileSync('.env', 'utf8').match(/^BAILIAN_API_KEY=(.+)$/m)
+if (!keyMatch) {
+  console.error('BAILIAN_API_KEY not found in .env')
+  process.exit(1)
+}
+const key = keyMatch[1].trim().replace(/^["']|["']$/g, '')
+const dataset = JSON.parse(readFileSync(new URL('./smoke-dataset.json', import.meta.url), 'utf8'))
 
 const variants = [
   { name: 'qwen3.7-plus + schema prompt + thinking on', extra: {} },

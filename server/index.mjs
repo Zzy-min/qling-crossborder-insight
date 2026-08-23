@@ -6,5 +6,6 @@ const server = createApiServer({
   apiKey: process.env.BAILIAN_API_KEY,
   baseUrl: process.env.BAILIAN_BASE_URL,
   model: process.env.BAILIAN_MODEL,
+  logger: console.log,
 })
 server.listen(port, host, () => console.log(`Qling API listening on http://${host}:${port}`))

@@ -14,6 +14,7 @@
     "smoke:desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-desktop.ps1",
     "desktop": "npm run build && electron electron/main.mjs",
     "eval": "tsx scripts/evaluate-golden.ts",
+    "smoke:real": "node scripts/smoke-real.mjs",
     "review:prepare": "tsx scripts/prepare-human-review.ts",
     "review:audit": "node scripts/audit-human-review.mjs",
     "test:e2e": "playwright test",
