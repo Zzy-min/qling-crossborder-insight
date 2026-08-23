@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { InsightReport } from '../domain/types'
 import type { MarketScope } from '../domain/scope'
+import { decisionState } from '../domain/decision'
 
 export type WorkspaceStep = 'data' | 'opportunity' | 'evidence' | 'report'
 
@@ -10,12 +11,6 @@ const steps: Array<{ id: WorkspaceStep; number: string; label: string; hint: str
   { id: 'evidence', number: '03', label: '证据与风险', hint: '来源与行动' },
   { id: 'report', number: '04', label: '决策报告', hint: '导出与打印' },
 ]
-
-function decisionState(report: InsightReport) {
-  if (report.evidenceCoverage.totalClaims === 0 || report.opportunityScore < 40) return '暂缓进入'
-  if (report.opportunityScore < 60) return '补充证据'
-  return '进入验证'
-}
 
 export function WorkspaceShell({
   activeStep,
@@ -34,7 +29,7 @@ export function WorkspaceShell({
   report: InsightReport
   children: ReactNode
 }) {
-  const state = decisionState(report)
+  const decision = decisionState(report)
   return <main className="workspace-shell">
     <header className="topbar">
       <div className="brand-lockup"><span className="brand-mark">QL</span><div><strong>Qling 出海智察</strong><small>证据约束型市场决策工作台</small></div></div>
@@ -61,7 +56,7 @@ export function WorkspaceShell({
 
       <aside className="decision-rail">
         <span className="rail-kicker">本次决策</span>
-        <div className={`decision-status status-${state}`}><i />{state}</div>
+        <div className={`decision-status status-${decision.key}`}><i />{decision.label}</div>
         <div className="rail-score"><strong>{report.opportunityScore}</strong><span>/100</span></div>
         <p>{report.recommendation}</p>
         <dl className="rail-metrics">

@@ -1,6 +1,7 @@
 import type { InsightReport } from '../domain/types'
 import type { CompetitorSnapshot, PricingResult } from '../domain/market'
 import type { MarketScope } from '../domain/scope'
+import { marketLabel, severityLabel } from '../domain/labels'
 
 export function DecisionOverview({ report, marketScope, snapshots, price, landedCost, pricing, onPrice, onCost, onOpenTheme, onOpenScore, onOpenRisk }: {
   report: InsightReport
@@ -62,7 +63,7 @@ export function DecisionOverview({ report, marketScope, snapshots, price, landed
       </section>
       <section className="ledger-section risk-preview">
         <div className="section-title"><div><span>COMPLIANCE CHECK</span><h2>合规待办</h2></div><small>仅作信息辅助</small></div>
-        {report.complianceRisks.map((risk, index) => <button type="button" key={risk.id} onClick={() => onOpenRisk(index)}><span className={`severity ${risk.severity}`}>{risk.market} · {risk.severity.toUpperCase()}</span><strong>{risk.label}</strong><small>{risk.evidence.length} 条官方依据 · 需人工复核 →</small></button>)}
+        {report.complianceRisks.map((risk, index) => <button type="button" key={risk.id} onClick={() => onOpenRisk(index)}><span className={`severity ${risk.severity}`}>{marketLabel(risk.market)} · {severityLabel(risk.severity)}</span><strong>{risk.label}</strong><small>{risk.evidence.length} 条官方依据 · 需人工复核 →</small></button>)}
       </section>
     </div>
   </section>

@@ -86,16 +86,20 @@ function modelContent(envelope: unknown): string {
 export interface ProxyProviderOptions {
   baseUrl?: string
   fetcher?: typeof fetch
+  /** 请求超时（毫秒）。默认 70s，略高于服务端代理的 60s 上游超时。 */
+  timeoutMs?: number
 }
 
 export class ProxyProvider implements AnalysisProvider {
   readonly mode = 'bailian' as const
   private readonly fetcher: typeof fetch
   private readonly baseUrl: string
+  private readonly timeoutMs: number
 
   constructor(options: ProxyProviderOptions = {}) {
     this.fetcher = options.fetcher ?? fetch
     this.baseUrl = (options.baseUrl ?? '').replace(/\/$/, '')
+    this.timeoutMs = options.timeoutMs ?? 70_000
   }
 
   async isConfigured(): Promise<boolean> {
@@ -109,11 +113,20 @@ export class ProxyProvider implements AnalysisProvider {
   }
 
   async analyze(dataset: DatasetBundle): Promise<ProviderAnalysis> {
-    const response = await this.fetcher(`${this.baseUrl}/api/analyze`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(dataset),
-    })
+    let response: Response
+    try {
+      response = await this.fetcher(`${this.baseUrl}/api/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dataset),
+        signal: AbortSignal.timeout(this.timeoutMs),
+      })
+    } catch (error) {
+      if (error instanceof DOMException && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+        throw new Error(`AI proxy request timeout after ${Math.round(this.timeoutMs / 1000)}s`)
+      }
+      throw error
+    }
     if (!response.ok) throw new Error(`AI proxy request failed: HTTP ${response.status}`)
     return materializeModelOutput(modelContent(await response.json()), dataset)
   }

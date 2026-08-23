@@ -6,6 +6,7 @@ import { buildCompetitorSnapshot, simulatePricing } from './domain/market'
 import { sampleDataset } from './fixtures/usbCChargers'
 import { ProxyProvider } from './providers/provider'
 import { scopeDataset, type MarketScope } from './domain/scope'
+import { marketLabel } from './domain/labels'
 import { WorkspaceShell, type WorkspaceStep } from './components/WorkspaceShell'
 import { DataPreparation, type ImportErrorDetail } from './components/DataPreparation'
 import { DecisionOverview } from './components/DecisionOverview'
@@ -117,7 +118,8 @@ export function App() {
     setMarketScope('BOTH')
   }
 
-  function startAnalysisProgress() {
+  /** 本地确定性分析的舞台式进度：纯视觉演示，播完即进入 02 页。 */
+  function startLocalAnalysisProgress() {
     clearStageTimers()
     analysisStages.forEach((stage, index) => {
       stageTimers.current.push(window.setTimeout(() => setAnalysisStage(stage.id), index * 150))
@@ -128,19 +130,35 @@ export function App() {
     }, analysisStages.length * 150 + 120))
   }
 
+  /**
+   * 真实百炼请求的进度：阶段轮播只为提示流程位置，
+   * 不做完成判定——完成/失败由真实请求的生命周期驱动（见 runAiAnalysis）。
+   */
+  function startAiProgress() {
+    clearStageTimers()
+    analysisStages.forEach((stage, index) => {
+      stageTimers.current.push(window.setTimeout(() => setAnalysisStage(stage.id), index * 4000))
+    })
+  }
+
   async function runAiAnalysis() {
     const requestVersion = analysisVersion.current + 1
     analysisVersion.current = requestVersion
     setAiStatus('running')
     setAnalysisError('')
-    startAnalysisProgress()
+    startAiProgress()
     try {
       const analysis = await proxyProvider.analyze(scopedDataset)
       if (analysisVersion.current !== requestVersion) return
+      clearStageTimers()
+      setAnalysisStage(null)
       setReport(buildInsightReportFromAnalysis(scopedDataset, analysis, proxyProvider.mode, undefined, { deduplicatedCount }))
       setAiStatus('ready')
+      setActiveStep('opportunity')
     } catch (caught) {
       if (analysisVersion.current !== requestVersion) return
+      clearStageTimers()
+      setAnalysisStage(null)
       setReport(fixtureReport)
       setAiStatus('fallback')
       const message = caught instanceof Error ? caught.message : ''
@@ -171,7 +189,7 @@ export function App() {
   function openRisk(index: number) {
     const risk = report.complianceRisks[index]
     if (!risk) return
-    setSelection({ title: risk.label, kind: `${risk.market} 合规预警`, confidence: '官方来源已绑定 · 需人工复核', explanation: '系统只提示适用范围与措辞风险，不自动作出法律判断。', evidence: risk.evidence })
+    setSelection({ title: risk.label, kind: `${marketLabel(risk.market)}合规预警`, confidence: '官方来源已绑定 · 需人工复核', explanation: '系统只提示适用范围与措辞风险，不自动作出法律判断。', evidence: risk.evidence })
   }
 
   function openMarketEvidence() {
@@ -206,9 +224,13 @@ export function App() {
       <div className="market-control" role="group" aria-label="目标市场"><span>目标市场</span>{([['US', '美国'], ['EU', '欧盟'], ['BOTH', '美国 + 欧盟']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={marketScope === value} onClick={() => setMarketScope(value)}>{label}</button>)}</div>
       <div className="ai-control"><span className={`ai-state ${aiStatus}`}>{aiStatus === 'checking' ? '检测代理…' : aiStatus === 'running' ? '百炼分析中' : aiStatus === 'ready' ? '百炼可用' : aiStatus === 'fallback' ? '已回退本地规则' : '离线可用'}</span><button type="button" disabled={!aiConfigured || aiStatus === 'running' || !canAnalyze} onClick={() => void runAiAnalysis()}>{aiStatus === 'running' ? '分析中…' : '运行百炼增强'}</button></div>
     </div>
-    {analysisStage && <div className="analysis-progress" role="status"><div><strong>正在构建证据化报告</strong><span>{analysisStages.find((item) => item.id === analysisStage)?.label}</span></div><ol>{analysisStages.map((stage) => <li key={stage.id} className={analysisStages.findIndex((item) => item.id === stage.id) <= analysisStages.findIndex((item) => item.id === analysisStage) ? 'complete' : ''}><i />{stage.label}</li>)}</ol></div>}
-    {analysisError && <p className="analysis-notice" role="alert">{analysisError}</p>}
-    {activeStep === 'data' && <DataPreparation quality={report.dataQuality} sourceLabel={sourceLabel} error={importError} canAnalyze={canAnalyze} onFile={(file) => void handleCsvFile(file)} onReset={resetDemo} onAnalyze={startAnalysisProgress} />}
+    {analysisStage && (() => {
+      const stageLabel = analysisStages.find((item) => item.id === analysisStage)?.label
+      const aiRunning = aiStatus === 'running'
+      return <div className="analysis-progress" role="status" aria-live="polite"><div><strong>{aiRunning ? '真实模型推理中' : '正在构建证据化报告'}</strong><span>{aiRunning ? `${stageLabel} · 通常需 10–60 秒，完成后自动进入市场机会` : stageLabel}</span></div><ol>{analysisStages.map((stage) => <li key={stage.id} className={analysisStages.findIndex((item) => item.id === stage.id) <= analysisStages.findIndex((item) => item.id === analysisStage) ? 'complete' : ''}><i />{stage.label}</li>)}</ol></div>
+    })()}
+    {analysisError && <div className="analysis-notice" role="alert"><p>{analysisError}</p>{aiStatus === 'fallback' && aiConfigured && canAnalyze && <button type="button" onClick={() => void runAiAnalysis()}>重试百炼分析</button>}</div>}
+    {activeStep === 'data' && <DataPreparation quality={report.dataQuality} sourceLabel={sourceLabel} error={importError} canAnalyze={canAnalyze} onFile={(file) => void handleCsvFile(file)} onReset={resetDemo} onAnalyze={startLocalAnalysisProgress} />}
     {activeStep === 'opportunity' && <DecisionOverview report={report} marketScope={marketScope} snapshots={competitorSnapshots} price={price} landedCost={landedCost} pricing={pricing} onPrice={(value) => setPrice(Math.max(0.01, value || 0.01))} onCost={(value) => setLandedCost(Math.max(0, value || 0))} onOpenTheme={openTheme} onOpenScore={openScore} onOpenRisk={openRisk} />}
     {activeStep === 'evidence' && <EvidenceWorkspace report={report} onOpenTheme={openTheme} onOpenMarket={openMarketEvidence} onOpenRisk={openRisk} />}
     {activeStep === 'report' && <ReportView report={report} sourceLabel={sourceLabel} onExport={exportReport} onPrint={() => window.print()} onBack={() => setActiveStep('data')} />}

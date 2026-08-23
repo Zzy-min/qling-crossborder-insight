@@ -99,4 +99,23 @@ describe('browser proxy provider', () => {
     const fetcher = vi.fn(async () => { throw new Error('offline') })
     expect(await new ProxyProvider({ fetcher }).isConfigured()).toBe(false)
   })
+
+  it('converts an abort timeout into a friendly timeout error', async () => {
+    const fetcher = vi.fn(async () => {
+      throw new DOMException('signal timed out', 'TimeoutError')
+    })
+    await expect(new ProxyProvider({ fetcher }).analyze(sampleDataset))
+      .rejects.toThrow('AI proxy request timeout after 70s')
+  })
+
+  it('passes an abort signal tied to the configured timeout', async () => {
+    let capturedInit: RequestInit | undefined
+    const content = JSON.stringify({ themes: [], complianceRisks: [] })
+    const fetcher: typeof fetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      capturedInit = init
+      return new Response(JSON.stringify({ choices: [{ message: { content } }] }))
+    })
+    await new ProxyProvider({ fetcher, timeoutMs: 5000 }).analyze(sampleDataset)
+    expect(capturedInit?.signal).toBeInstanceOf(AbortSignal)
+  })
 })
