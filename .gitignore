@@ -10,6 +10,7 @@ artifacts/evaluation/golden-report.json
 artifacts/evaluation/human-review.json
 artifacts/evaluation/human-review/
 artifacts/evaluation/single-review/
+artifacts/evaluation/model-contract-eval/
 artifacts/submission/
 .env
 .env.*

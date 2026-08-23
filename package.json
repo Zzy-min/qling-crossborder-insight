@@ -15,6 +15,7 @@
     "desktop": "npm run build && electron electron/main.mjs",
     "eval": "tsx scripts/evaluate-golden.ts",
     "smoke:real": "node scripts/smoke-real.mjs",
+    "eval:model": "tsx scripts/evaluate-model.ts",
     "review:prepare": "tsx scripts/prepare-human-review.ts",
     "review:audit": "node scripts/audit-human-review.mjs",
     "test:e2e": "playwright test",
