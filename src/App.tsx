@@ -4,6 +4,7 @@ import { CsvValidationError, parseReviewCsvDetailed } from './domain/csv'
 import type { AnalysisStage, DatasetBundle, EvidenceRef, InsightReport } from './domain/types'
 import { buildCompetitorSnapshot, simulatePricing } from './domain/market'
 import { sampleDataset } from './fixtures/usbCChargers'
+import { CATEGORY_PRESETS, type CategoryPreset } from './fixtures/categories'
 import { ProxyProvider } from './providers/provider'
 import { scopeDataset, type MarketScope } from './domain/scope'
 import { marketLabel } from './domain/labels'
@@ -32,6 +33,7 @@ function evidenceMarket(evidence: EvidenceRef, dataset: DatasetBundle) {
 }
 
 export function App() {
+  const [selectedCategory, setSelectedCategory] = useState<CategoryPreset>(CATEGORY_PRESETS[0])
   const [dataset, setDataset] = useState<DatasetBundle>(sampleDataset)
   const [marketScope, setMarketScope] = useState<MarketScope>('BOTH')
   const [sourceLabel, setSourceLabel] = useState('内置演示样例')
@@ -49,6 +51,7 @@ export function App() {
   const analysisVersion = useRef(0)
   const stageTimers = useRef<number[]>([])
   const proxyProvider = useMemo(() => new ProxyProvider({ baseUrl: import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8787' }), [])
+  
   const competitorSnapshots = useMemo(() => {
     const groups = scopedDataset.products.reduce((result, product) => {
       const group = result.get(product.currency) ?? []
@@ -58,12 +61,14 @@ export function App() {
     }, new Map<string, typeof scopedDataset.products>())
     return [...groups.values()].map(buildCompetitorSnapshot)
   }, [scopedDataset.products])
+
   const [price, setPrice] = useState(39.99)
   const [landedCost, setLandedCost] = useState(18)
   const pricing = useMemo(() => {
     try { return simulatePricing({ price, landedCost, platformRate: 0.15, adRate: 0.12, fixedLaunchCost: 2500 }) }
     catch { return null }
   }, [price, landedCost])
+  
   const canAnalyze = scopedDataset.products.length > 0 && scopedDataset.reviews.length > 0 && scopedDataset.policies.length > 0
 
   const clearStageTimers = useCallback(() => {
@@ -93,11 +98,22 @@ export function App() {
     return () => { active = false }
   }, [proxyProvider])
 
+  function handleSelectCategory(cat: CategoryPreset) {
+    setSelectedCategory(cat)
+    setDataset(cat.dataset)
+    setSourceLabel(cat.id === 'usb-c-chargers' ? '内置演示样例' : cat.name)
+    setPrice(cat.defaultPrice)
+    setLandedCost(cat.defaultLandedCost)
+    setDeduplicatedCount(0)
+    setImportError(null)
+    setMarketScope(cat.id === 'usb-c-chargers' ? 'BOTH' : 'ALL')
+  }
+
   async function handleCsvFile(file?: File) {
     if (!file) return
     try {
-      const parsed = parseReviewCsvDetailed(await file.text(), new Set(sampleDataset.products.map((product) => product.productId)))
-      setDataset({ ...sampleDataset, reviews: parsed.reviews })
+      const parsed = parseReviewCsvDetailed(await file.text(), new Set(dataset.products.map((product) => product.productId)))
+      setDataset({ ...dataset, reviews: parsed.reviews })
       setDeduplicatedCount(parsed.deduplicatedCount)
       setSourceLabel(`本地 CSV · ${file.name}`)
       setImportError(null)
@@ -111,11 +127,7 @@ export function App() {
   }
 
   function resetDemo() {
-    setDataset(sampleDataset)
-    setDeduplicatedCount(0)
-    setSourceLabel('内置演示样例')
-    setImportError(null)
-    setMarketScope('BOTH')
+    handleSelectCategory(CATEGORY_PRESETS[0])
   }
 
   /** 本地确定性分析的舞台式进度：纯视觉演示，播完即进入 02 页。 */
@@ -168,7 +180,12 @@ export function App() {
 
   function exportReport() {
     const payload = {
-      schemaVersion: '1.1', sourceLabel, marketScope, report, competitorSnapshots,
+      schemaVersion: '1.1',
+      category: selectedCategory.name,
+      sourceLabel,
+      marketScope,
+      report,
+      competitorSnapshots,
       pricingScenario: pricing ? { currency: marketScope === 'EU' ? 'EUR' : 'USD', ...pricing } : null,
       disclaimer: '本报告为信息辅助，不构成法律、财务或销量预测。',
     }
@@ -183,13 +200,25 @@ export function App() {
   function openTheme(index: number) {
     const theme = report.themes[index]
     if (!theme) return
-    setSelection({ title: theme.label, kind: '评论痛点', confidence: theme.evidence.length ? '有原始评论支持' : '证据不足', explanation: `${theme.mentions} 条关键证据指向该体验问题。`, evidence: theme.evidence.map((item) => ({ ...item, excerpt: `${item.excerpt} · 市场 ${evidenceMarket(item, scopedDataset) ?? '未知'}` })) })
+    setSelection({
+      title: theme.label,
+      kind: '评论痛点',
+      confidence: theme.evidence.length ? '有原始评论支持' : '证据不足',
+      explanation: `${theme.mentions} 条关键证据指向该体验问题。`,
+      evidence: theme.evidence.map((item) => ({ ...item, excerpt: `${item.excerpt} · 市场 ${evidenceMarket(item, scopedDataset) ?? '未知'}` })),
+    })
   }
 
   function openRisk(index: number) {
     const risk = report.complianceRisks[index]
     if (!risk) return
-    setSelection({ title: risk.label, kind: `${marketLabel(risk.market)}合规预警`, confidence: '官方来源已绑定 · 需人工复核', explanation: '系统只提示适用范围与措辞风险，不自动作出法律判断。', evidence: risk.evidence })
+    setSelection({
+      title: risk.label,
+      kind: `${marketLabel(risk.market)}合规预警`,
+      confidence: '官方来源已绑定 · 需人工复核',
+      explanation: '系统只提示适用范围与措辞风险，不自动作出法律判断。',
+      evidence: risk.evidence,
+    })
   }
 
   function openMarketEvidence() {
@@ -214,26 +243,171 @@ export function App() {
     const evidence = item.key === 'painIntensity' || item.key === 'improvementSpace'
       ? report.themes.flatMap((theme) => theme.evidence)
       : item.key === 'compliancePenalty' ? report.complianceRisks.flatMap((risk) => risk.evidence) : []
-    setSelection({ title: item.label, kind: '评分解释', confidence: evidence.length ? '确定性计算 · 有关联证据' : '确定性计算 · 间接数据', explanation: `原始分 ${item.rawScore}，${item.direction === 'subtract' ? '扣减' : '增加'}权重 ${Math.round(item.weight * 100)}%，加权贡献 ${item.weightedContribution}。模型不能直接修改该分项。`, evidence })
+    setSelection({
+      title: item.label,
+      kind: '评分解释',
+      confidence: evidence.length ? '确定性计算 · 有关联证据' : '确定性计算 · 间接数据',
+      explanation: `原始分 ${item.rawScore}，${item.direction === 'subtract' ? '扣减' : '增加'}权重 ${Math.round(item.weight * 100)}%，加权贡献 ${item.weightedContribution}。模型不能直接修改该分项。`,
+      evidence,
+    })
   }
 
   const providerLabel = report.providerMode === 'bailian' ? '百炼增强' : aiStatus === 'fallback' ? '本地回退' : '本地规则'
 
-  return <WorkspaceShell activeStep={activeStep} onStepChange={setActiveStep} sourceLabel={sourceLabel} marketScope={marketScope} providerLabel={providerLabel} report={report}>
-    <div className="surface-toolbar no-print">
-      <div className="market-control" role="group" aria-label="目标市场"><span>目标市场</span>{([['US', '美国'], ['EU', '欧盟'], ['BOTH', '美国 + 欧盟']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={marketScope === value} onClick={() => setMarketScope(value)}>{label}</button>)}</div>
-      <div className="ai-control"><span className={`ai-state ${aiStatus}`}>{aiStatus === 'checking' ? '检测代理…' : aiStatus === 'running' ? '百炼分析中' : aiStatus === 'ready' ? '百炼可用' : aiStatus === 'fallback' ? '已回退本地规则' : '离线可用'}</span><button type="button" disabled={!aiConfigured || aiStatus === 'running' || !canAnalyze} onClick={() => void runAiAnalysis()}>{aiStatus === 'running' ? '分析中…' : '运行百炼增强'}</button></div>
-    </div>
-    {analysisStage && (() => {
-      const stageLabel = analysisStages.find((item) => item.id === analysisStage)?.label
-      const aiRunning = aiStatus === 'running'
-      return <div className="analysis-progress" role="status" aria-live="polite"><div><strong>{aiRunning ? '真实模型推理中' : '正在构建证据化报告'}</strong><span>{aiRunning ? `${stageLabel} · 通常需 10–60 秒，完成后自动进入市场机会` : stageLabel}</span></div><ol>{analysisStages.map((stage) => <li key={stage.id} className={analysisStages.findIndex((item) => item.id === stage.id) <= analysisStages.findIndex((item) => item.id === analysisStage) ? 'complete' : ''}><i />{stage.label}</li>)}</ol></div>
-    })()}
-    {analysisError && <div className="analysis-notice" role="alert"><p>{analysisError}</p>{aiStatus === 'fallback' && aiConfigured && canAnalyze && <button type="button" onClick={() => void runAiAnalysis()}>重试百炼分析</button>}</div>}
-    {activeStep === 'data' && <DataPreparation quality={report.dataQuality} sourceLabel={sourceLabel} error={importError} canAnalyze={canAnalyze} onFile={(file) => void handleCsvFile(file)} onReset={resetDemo} onAnalyze={startLocalAnalysisProgress} />}
-    {activeStep === 'opportunity' && <DecisionOverview report={report} marketScope={marketScope} snapshots={competitorSnapshots} price={price} landedCost={landedCost} pricing={pricing} onPrice={(value) => setPrice(Math.max(0.01, value || 0.01))} onCost={(value) => setLandedCost(Math.max(0, value || 0))} onOpenTheme={openTheme} onOpenScore={openScore} onOpenRisk={openRisk} />}
-    {activeStep === 'evidence' && <EvidenceWorkspace report={report} onOpenTheme={openTheme} onOpenMarket={openMarketEvidence} onOpenRisk={openRisk} />}
-    {activeStep === 'report' && <ReportView report={report} sourceLabel={sourceLabel} onExport={exportReport} onPrint={() => window.print()} onBack={() => setActiveStep('data')} />}
-    <EvidenceDrawer selection={selection} onClose={() => setSelection(null)} />
-  </WorkspaceShell>
+  // Determine market control options based on dataset markets
+  const marketOptions = useMemo(() => {
+    const markets = new Set(dataset.products.map((p) => p.market))
+    if (markets.has('JP') || markets.has('UK')) {
+      return [
+        ['ALL', '全部市场'],
+        ['US', '美国'],
+        ['EU', '欧盟'],
+        ['JP', '日本'],
+        ['UK', '英国'],
+      ].filter(([val]) => val === 'ALL' || markets.has(val as any)) as Array<[MarketScope, string]>
+    }
+    return [
+      ['US', '美国'],
+      ['EU', '欧盟'],
+      ['BOTH', '美国 + 欧盟'],
+    ] as Array<[MarketScope, string]>
+  }, [dataset.products])
+
+  return (
+    <WorkspaceShell
+      activeStep={activeStep}
+      onStepChange={setActiveStep}
+      sourceLabel={sourceLabel}
+      marketScope={marketScope}
+      providerLabel={providerLabel}
+      report={report}
+    >
+      <div className="surface-toolbar no-print">
+        <div className="market-control" role="group" aria-label="目标市场">
+          <span>目标市场</span>
+          {marketOptions.map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={marketScope === value}
+              onClick={() => setMarketScope(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="ai-control">
+          <span className={`ai-state ${aiStatus}`}>
+            {aiStatus === 'checking'
+              ? '检测代理…'
+              : aiStatus === 'running'
+                ? '百炼分析中'
+                : aiStatus === 'ready'
+                  ? '百炼可用'
+                  : aiStatus === 'fallback'
+                    ? '已回退本地规则'
+                    : '离线可用'}
+          </span>
+          <button
+            type="button"
+            disabled={!aiConfigured || aiStatus === 'running' || !canAnalyze}
+            onClick={() => void runAiAnalysis()}
+          >
+            {aiStatus === 'running' ? '分析中…' : '运行百炼增强'}
+          </button>
+        </div>
+      </div>
+
+      {analysisStage && (() => {
+        const stageLabel = analysisStages.find((item) => item.id === analysisStage)?.label
+        const aiRunning = aiStatus === 'running'
+        return (
+          <div className="analysis-progress" role="status" aria-live="polite">
+            <div>
+              <strong>{aiRunning ? '真实模型推理中' : '正在构建证据化报告'}</strong>
+              <span>{aiRunning ? `${stageLabel} · 通常需 10–60 秒，完成后自动进入市场机会` : stageLabel}</span>
+            </div>
+            <ol>
+              {analysisStages.map((stage) => (
+                <li
+                  key={stage.id}
+                  className={
+                    analysisStages.findIndex((item) => item.id === stage.id) <=
+                    analysisStages.findIndex((item) => item.id === analysisStage)
+                      ? 'complete'
+                      : ''
+                  }
+                >
+                  <i />
+                  {stage.label}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )
+      })()}
+
+      {analysisError && (
+        <div className="analysis-notice" role="alert">
+          <p>{analysisError}</p>
+          {aiStatus === 'fallback' && aiConfigured && canAnalyze && (
+            <button type="button" onClick={() => void runAiAnalysis()}>重试百炼分析</button>
+          )}
+        </div>
+      )}
+
+      {activeStep === 'data' && (
+        <DataPreparation
+          quality={report.dataQuality}
+          sourceLabel={sourceLabel}
+          error={importError}
+          canAnalyze={canAnalyze}
+          selectedCategoryId={selectedCategory.id}
+          onSelectCategory={handleSelectCategory}
+          onFile={(file) => void handleCsvFile(file)}
+          onReset={resetDemo}
+          onAnalyze={startLocalAnalysisProgress}
+        />
+      )}
+
+      {activeStep === 'opportunity' && (
+        <DecisionOverview
+          report={report}
+          marketScope={marketScope}
+          snapshots={competitorSnapshots}
+          price={price}
+          landedCost={landedCost}
+          pricing={pricing}
+          onPrice={(value) => setPrice(Math.max(0.01, value || 0.01))}
+          onCost={(value) => setLandedCost(Math.max(0, value || 0))}
+          onOpenTheme={openTheme}
+          onOpenScore={openScore}
+          onOpenRisk={openRisk}
+        />
+      )}
+
+      {activeStep === 'evidence' && (
+        <EvidenceWorkspace
+          report={report}
+          onOpenTheme={openTheme}
+          onOpenMarket={openMarketEvidence}
+          onOpenRisk={openRisk}
+        />
+      )}
+
+      {activeStep === 'report' && (
+        <ReportView
+          report={report}
+          sourceLabel={sourceLabel}
+          categoryName={selectedCategory.name}
+          marketScope={marketScope}
+          onExport={exportReport}
+          onPrint={() => window.print()}
+          onBack={() => setActiveStep('data')}
+        />
+      )}
+
+      <EvidenceDrawer selection={selection} onClose={() => setSelection(null)} />
+    </WorkspaceShell>
+  )
 }

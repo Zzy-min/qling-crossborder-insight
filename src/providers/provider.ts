@@ -60,7 +60,13 @@ function materializeModelOutput(content: string, dataset: DatasetBundle): Provid
   return {
     themes: parsed.themes.map(({ reviewIds, ...theme }) => {
       const uniqueReviewIds = [...new Set(reviewIds)]
-      return { ...theme, mentions: uniqueReviewIds.length, evidence: uniqueReviewIds.map(reviewEvidence) }
+      return {
+        ...theme,
+        mentions: uniqueReviewIds.length,
+        evidence: uniqueReviewIds.map(reviewEvidence),
+        quadrant: uniqueReviewIds.length >= 2 ? ('urgent_fix' as const) : ('emerging_risk' as const),
+        severityScore: Math.min(10, uniqueReviewIds.length * 3 + 4),
+      }
     }),
     complianceRisks: parsed.complianceRisks.map(({ policyIds, ...risk }) => {
       const uniquePolicyIds = [...new Set(policyIds)]

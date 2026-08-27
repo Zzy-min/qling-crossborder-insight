@@ -3,7 +3,7 @@ import { z } from 'zod'
 const sourceUrl = z.string().max(2048).refine((value) => value.startsWith('https://') || value.startsWith('fixture:'))
 const product = z.object({
   productId: z.string().trim().min(1).max(120), title: z.string().max(500), brand: z.string().max(200),
-  market: z.enum(['US', 'EU']), currency: z.enum(['USD', 'EUR']), price: z.number().nonnegative(),
+  market: z.enum(['US', 'EU', 'JP', 'UK']), currency: z.enum(['USD', 'EUR', 'JPY', 'GBP']), price: z.number().nonnegative(),
   rating: z.number().min(0).max(5), reviewCount: z.number().int().nonnegative(), capturedAt: z.string().date(), sourceUrl,
 }).strict()
 const review = z.object({
@@ -12,7 +12,7 @@ const review = z.object({
   reviewedAt: z.string().date(), verifiedPurchase: z.boolean(), sourceUrl,
 }).strict()
 const policy = z.object({
-  policyId: z.string().trim().min(1).max(120), market: z.enum(['US', 'EU']), authority: z.string().max(300),
+  policyId: z.string().trim().min(1).max(120), market: z.enum(['US', 'EU', 'JP', 'UK']), authority: z.string().max(300),
   topic: z.string().max(500), effectiveAt: z.string().date(), summary: z.string().min(1).max(5000), sourceUrl,
 }).strict()
 const schema = z.object({

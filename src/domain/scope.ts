@@ -1,9 +1,9 @@
 import type { DatasetBundle } from './types'
 
-export type MarketScope = 'US' | 'EU' | 'BOTH'
+export type MarketScope = 'ALL' | 'US' | 'EU' | 'JP' | 'UK' | 'BOTH'
 
 export function scopeDataset(dataset: DatasetBundle, scope: MarketScope): DatasetBundle {
-  if (scope === 'BOTH') return dataset
+  if (scope === 'ALL' || scope === 'BOTH') return dataset
   const products = dataset.products.filter((product) => product.market === scope)
   const productIds = new Set(products.map((product) => product.productId))
   return {

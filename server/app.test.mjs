@@ -274,3 +274,30 @@ test('access log never leaks the api key or dataset content', async () => {
   assert.ok(joined.includes('upstream_call'), 'log should record the call event')
   assert.ok(joined.includes('upstream_done'), 'log should record the completion event')
 })
+
+
+test('accepts multi-market products and policies across US, EU, JP, and UK', async () => {
+  const multiMarketDataset = {
+    products: [
+      { productId: 'p-us', title: 'Power US', brand: 'BrandA', market: 'US', currency: 'USD', price: 99, rating: 4.5, reviewCount: 100, capturedAt: '2026-08-01', sourceUrl: 'fixture:test/p-us' },
+      { productId: 'p-jp', title: 'Power JP', brand: 'BrandB', market: 'JP', currency: 'JPY', price: 15000, rating: 4.6, reviewCount: 80, capturedAt: '2026-08-01', sourceUrl: 'fixture:test/p-jp' },
+      { productId: 'p-uk', title: 'Power UK', brand: 'BrandC', market: 'UK', currency: 'GBP', price: 89, rating: 4.3, reviewCount: 60, capturedAt: '2026-08-01', sourceUrl: 'fixture:test/p-uk' },
+    ],
+    reviews: [
+      { reviewId: 'r-1', productId: 'p-us', locale: 'en-US', rating: 2, title: 'Hot', body: 'Too hot', reviewedAt: '2026-08-02', verifiedPurchase: true, sourceUrl: 'fixture:test/r-1' },
+      { reviewId: 'r-2', productId: 'p-jp', locale: 'ja-JP', rating: 3, title: 'Noisy', body: 'Fan is loud', reviewedAt: '2026-08-02', verifiedPurchase: true, sourceUrl: 'fixture:test/r-2' },
+    ],
+    policies: [
+      { policyId: 'pol-jp', market: 'JP', authority: 'METI', topic: 'pse', effectiveAt: '2025-01-01', summary: 'PSE mark required', sourceUrl: 'https://example.com/pse' },
+      { policyId: 'pol-uk', market: 'UK', authority: 'OPSS', topic: 'ukca', effectiveAt: '2025-01-01', summary: 'UKCA marking required', sourceUrl: 'https://example.com/ukca' },
+    ],
+  }
+  const fetcher = async () => new Response(VALID_ENVELOPE, { status: 200 })
+  const base = await start({ apiKey: 'k', fetcher })
+  const response = await fetch(`${base}/api/analyze`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(multiMarketDataset),
+  })
+  assert.equal(response.status, 200)
+})

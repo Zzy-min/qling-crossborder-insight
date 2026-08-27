@@ -1,9 +1,12 @@
+export type Market = 'US' | 'EU' | 'JP' | 'UK'
+export type Currency = 'USD' | 'EUR' | 'JPY' | 'GBP'
+
 export interface ProductRow {
   productId: string
   title: string
   brand: string
-  market: 'US' | 'EU'
-  currency: 'USD' | 'EUR'
+  market: Market
+  currency: Currency
   price: number
   rating: number
   reviewCount: number
@@ -25,7 +28,7 @@ export interface ReviewRow {
 
 export interface PolicyRow {
   policyId: string
-  market: 'US' | 'EU'
+  market: Market
   authority: string
   topic: string
   effectiveAt: string
@@ -41,12 +44,30 @@ export interface EvidenceRef {
   evidenceType: 'product' | 'review' | 'policy'
 }
 
+export type PainQuadrant = 'urgent_fix' | 'emerging_risk' | 'core_strength' | 'opportunity'
+
 export interface ReviewTheme {
   id: string
   label: string
   sentiment: 'positive' | 'negative'
   mentions: number
   evidence: EvidenceRef[]
+  quadrant?: PainQuadrant
+  severityScore?: number
+}
+
+export interface VisualConcept {
+  id: string
+  themeId: string
+  themeLabel: string
+  conceptTitle: string
+  problemSummary: string
+  designSolution: string
+  imagePrompt: string
+  feasibility: 'high' | 'medium'
+  estimatedCost: string
+  citableReviewIds: string[]
+  svgPreview?: string
 }
 
 export interface ScoreBreakdown {
@@ -63,7 +84,7 @@ export interface DataQualitySummary {
   timeRange: { from: string; to: string } | null
   linkedProducts: number
   deduplicatedCount: number
-  marketCoverage: Array<'US' | 'EU'>
+  marketCoverage: Market[]
   privacyCheck: 'passed'
 }
 
@@ -102,7 +123,7 @@ export type AnalysisStage = 'validation' | 'themes' | 'binding' | 'scoring' | 'c
 
 export interface ComplianceRisk {
   id: string
-  market: 'US' | 'EU'
+  market: Market
   label: string
   severity: 'low' | 'medium' | 'high'
   evidence: EvidenceRef[]
@@ -121,6 +142,7 @@ export interface InsightReport {
   evidenceCoverage: EvidenceCoverageSummary
   scoreContributions: ScoreContribution[]
   actions: DecisionAction[]
+  visualConcepts?: VisualConcept[]
 }
 
 export type ProviderMode = 'fixture' | 'mock' | 'bailian'
