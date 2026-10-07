@@ -4,7 +4,7 @@ const marketLabels: Record<string, string> = {
   JP: '日本',
   UK: '英国',
   ALL: '全部市场',
-  BOTH: '欧美综合',
+  BOTH: '美国 + 欧盟',
 }
 const severityLabels: Record<string, string> = { low: '低风险', medium: '中风险', high: '高风险' }
 const currencySymbols: Record<string, string> = {
@@ -27,4 +27,12 @@ export function severityLabel(severity: string): string {
 /** 币种符号转换 */
 export function currencySymbol(currency: string): string {
   return currencySymbols[currency] ?? '$'
+}
+
+/** 单一目标市场对应的标价币种。综合范围不猜测，调用方应使用样本快照。 */
+export function currencyForMarket(market: string): 'USD' | 'EUR' | 'JPY' | 'GBP' {
+  if (market === 'EU') return 'EUR'
+  if (market === 'JP') return 'JPY'
+  if (market === 'UK') return 'GBP'
+  return 'USD'
 }

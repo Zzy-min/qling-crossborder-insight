@@ -23,7 +23,30 @@ test('health does not reveal the API key', async () => {
   const base = await start({ apiKey: 'secret-value' })
   const body = await (await fetch(`${base}/health`)).text()
   assert.equal(body.includes('secret-value'), false)
-  assert.deepEqual(JSON.parse(body), { ok: true, providerConfigured: true })
+  assert.deepEqual(JSON.parse(body), { ok: true, providerConfigured: true, providerEndpoint: 'https://token-plan.cn-beijing.maas.aliyuncs.com', model: 'qwen3.7-plus', promptVersion: 'qling-proxy-analysis/4' })
+})
+
+test('health reveals only the provider origin, never URL credentials or query secrets', async () => {
+  const base = await start({ apiKey: 'server-secret', baseUrl: 'https://user:password@example.com/v1?token=private' })
+  const response = await (await fetch(`${base}/health`)).json()
+  assert.equal(response.providerEndpoint, 'https://example.com')
+  assert.equal(JSON.stringify(response).includes('password'), false)
+  assert.equal(JSON.stringify(response).includes('private'), false)
+})
+
+test('rejects hostile-origin POST without a preflight or upstream call', async () => {
+  let called = false
+  const base = await start({ apiKey: 'server-secret', fetcher: async () => { called = true } })
+  const response = await fetch(`${base}/api/analyze`, { method: 'POST', headers: { Origin: 'https://attacker.example', 'Content-Type': 'text/plain' }, body: '{"products":[],"reviews":[],"policies":[]}' })
+  assert.equal(response.status, 403)
+  assert.equal(called, false)
+})
+
+test('accepts bounded provenance metadata with legacy datasets', async () => {
+  const base = await start({ apiKey: 'server-secret', fetcher: async () => new Response(JSON.stringify({ choices: [{ message: { content: '{"themes":[],"complianceRisks":[]}' } }] })) })
+  const response = await fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ products: [], reviews: [], policies: [], provenance: { products: 'demo', reviews: 'user-provided', policies: 'unknown' } }) })
+  assert.equal(response.status, 200)
+  assert.equal(response.headers.get('x-qling-prompt-version'), 'qling-proxy-analysis/1')
 })
 
 test('analysis is disabled without a server-side key', async () => {
@@ -300,4 +323,67 @@ test('accepts multi-market products and policies across US, EU, JP, and UK', asy
     body: JSON.stringify(multiMarketDataset),
   })
   assert.equal(response.status, 200)
+})
+
+const IMAGE_BODY = JSON.stringify({ prompt: 'A studio product render of a feeder that does not jam.', reviewIds: ['review-pet-jam-1'] })
+const IMAGE_UPSTREAM = JSON.stringify({ output: { choices: [{ message: { content: [{ image: 'https://cdn.example/concept.png' }] } }] } })
+const PNG_BYTES = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x01])
+
+function imageFetcher(onGenerate) {
+  return async (url, options) => {
+    if (String(url).endsWith('/generation')) {
+      onGenerate?.(url, options)
+      return new Response(IMAGE_UPSTREAM, { status: 200 })
+    }
+    if (String(url) === 'https://cdn.example/concept.png') {
+      return new Response(PNG_BYTES, { status: 200, headers: { 'content-type': 'image/png' } })
+    }
+    throw new Error(`unexpected url ${url}`)
+  }
+}
+
+test('image generation requires cited review ids and does not call upstream', async () => {
+  let called = false
+  const base = await start({ apiKey: 'server-secret', fetcher: async () => { called = true } })
+  const response = await fetch(`${base}/api/images`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt: 'invent a product', reviewIds: [] }),
+  })
+  assert.equal(response.status, 400)
+  assert.equal((await response.json()).error, 'missing_evidence')
+  assert.equal(called, false)
+})
+
+test('image generation uses the token-plan image endpoint and hides the key', async () => {
+  let captured
+  const fetcher = imageFetcher((url, options) => {
+    captured = { url, authorization: options.headers.Authorization, body: JSON.parse(options.body) }
+  })
+  const base = await start({ apiKey: 'server-secret', fetcher, imageDownloader: fetcher })
+  const response = await fetch(`${base}/api/images`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: IMAGE_BODY })
+  const payload = await response.json()
+  const stored = await fetch(`${base}/api/images/${payload.imageId}`)
+  assert.equal(response.status, 200)
+  assert.equal(captured.url, 'https://token-plan.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation')
+  assert.equal(captured.authorization, 'Bearer server-secret')
+  assert.equal(captured.body.model, 'qwen-image-2.0')
+  assert.equal(captured.body.input.messages[0].content[0].text.includes('feeder'), true)
+  assert.equal(JSON.stringify(payload).includes('cdn.example'), false)
+  assert.equal(stored.status, 200)
+  assert.equal(stored.headers.get('content-type'), 'image/png')
+  assert.deepEqual(Buffer.from(await stored.arrayBuffer()), PNG_BYTES)
+  assert.equal(JSON.stringify(payload).includes('server-secret'), false)
+  assert.deepEqual(payload.reviewIds, ['review-pet-jam-1'])
+})
+
+test('repeated image requests reuse the cached result', async () => {
+  let calls = 0
+  const fetcher = imageFetcher(() => { calls += 1 })
+  const base = await start({ apiKey: 'server-secret', fetcher, imageDownloader: fetcher })
+  const first = await fetch(`${base}/api/images`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: IMAGE_BODY })
+  const second = await fetch(`${base}/api/images`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: IMAGE_BODY })
+  assert.equal((await first.json()).cached, false)
+  assert.equal((await second.json()).cached, true)
+  assert.equal(calls, 1)
 })

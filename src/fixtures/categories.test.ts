@@ -21,6 +21,8 @@ describe('CATEGORY_PRESETS', () => {
     expect(report.themes.length).toBeGreaterThan(0)
     expect(report.complianceRisks.length).toBeGreaterThan(0)
     expect(report.visualConcepts?.length).toBeGreaterThan(0)
+    expect(report.visualConcepts?.every((concept) => concept.estimatedCost === '未测算')).toBe(true)
+    expect(report.visualConcepts?.every((concept) => !/98\.5|42dB|6–8|1\.5%/.test(concept.designSolution))).toBe(true)
   })
 
   it('getCategoryPreset returns matching or default category', () => {

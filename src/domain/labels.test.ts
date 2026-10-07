@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { marketLabel, severityLabel, currencySymbol } from './labels'
+import { currencyForMarket, marketLabel, severityLabel, currencySymbol } from './labels'
 
 describe('display labels', () => {
   it('maps internal market enums to Chinese names', () => {
@@ -8,7 +8,7 @@ describe('display labels', () => {
     expect(marketLabel('JP')).toBe('日本')
     expect(marketLabel('UK')).toBe('英国')
     expect(marketLabel('ALL')).toBe('全部市场')
-    expect(marketLabel('BOTH')).toBe('欧美综合')
+    expect(marketLabel('BOTH')).toBe('美国 + 欧盟')
   })
 
   it('maps internal severity enums to Chinese labels', () => {
@@ -28,5 +28,13 @@ describe('display labels', () => {
   it('passes through unknown values untouched', () => {
     expect(marketLabel('XYZ')).toBe('XYZ')
     expect(severityLabel('critical')).toBe('critical')
+  })
+
+  it('maps a single target market to its pricing currency', () => {
+    expect(currencyForMarket('US')).toBe('USD')
+    expect(currencyForMarket('EU')).toBe('EUR')
+    expect(currencyForMarket('JP')).toBe('JPY')
+    expect(currencyForMarket('UK')).toBe('GBP')
+    expect(currencyForMarket('ALL')).toBe('USD')
   })
 })

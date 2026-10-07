@@ -1,6 +1,7 @@
 import type { DatasetBundle } from '../domain/types'
 
 export const outdoorPowerStationsDataset: DatasetBundle = {
+  provenance: { products: 'demo', reviews: 'demo', policies: 'demo' },
   products: [
     {
       productId: 'power-station-1000w-us',

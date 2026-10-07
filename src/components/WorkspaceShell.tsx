@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { InsightReport } from '../domain/types'
 import type { MarketScope } from '../domain/scope'
+import { marketLabel } from '../domain/labels'
 import { decisionState } from '../domain/decision'
 
 export type WorkspaceStep = 'data' | 'opportunity' | 'evidence' | 'report'
@@ -35,11 +36,19 @@ export function WorkspaceShell({
       <div className="brand-lockup"><span className="brand-mark">QL</span><div><strong>Qling 出海智察</strong><small>证据约束型市场决策工作台</small></div></div>
       <dl className="context-strip">
         <div><dt>数据源</dt><dd>{sourceLabel}</dd></div>
-        <div><dt>目标市场</dt><dd>{marketScope === 'BOTH' ? '美国 + 欧盟' : marketScope === 'US' ? '美国' : '欧盟'}</dd></div>
+        <div><dt>目标市场</dt><dd>{marketLabel(marketScope)}</dd></div>
         <div><dt>分析模式</dt><dd>{providerLabel}</dd></div>
         <div><dt>更新时间</dt><dd>{new Date(report.generatedAt).toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</dd></div>
       </dl>
     </header>
+
+    <div className="decision-compact">
+      <span className={`decision-status status-${decision.key}`}><i />{decision.label}</span>
+      <strong>{report.opportunityScore}<small>/100</small></strong>
+      <span>证据 {Math.round(report.evidenceCoverage.coverageRate * 100)}%</span>
+      <span>痛点 {report.themes.length}</span>
+      <button type="button" onClick={() => onStepChange('evidence')}>查看依据</button>
+    </div>
 
     <div className="workspace-grid">
       <aside className="process-rail" aria-label="分析流程">
@@ -60,7 +69,7 @@ export function WorkspaceShell({
         <div className="rail-score"><strong>{report.opportunityScore}</strong><span>/100</span></div>
         <p>{report.recommendation}</p>
         <dl className="rail-metrics">
-          <div><dt>证据覆盖</dt><dd>{Math.round(report.evidenceCoverage.coverageRate * 100)}%</dd></div>
+          <div><dt>引用绑定覆盖率</dt><dd>{Math.round(report.evidenceCoverage.coverageRate * 100)}%</dd></div>
           <div><dt>关键痛点</dt><dd>{report.themes.length}</dd></div>
           <div><dt>合规事项</dt><dd>{report.complianceRisks.length}</dd></div>
         </dl>

@@ -1,6 +1,7 @@
 import type { DatasetBundle } from '../domain/types'
 
 export const sampleDataset: DatasetBundle = {
+  provenance: { products: 'demo', reviews: 'demo', policies: 'demo' },
   products: [
     {
       productId: 'gan-65w-a',

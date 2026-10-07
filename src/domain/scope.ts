@@ -7,6 +7,7 @@ export function scopeDataset(dataset: DatasetBundle, scope: MarketScope): Datase
   const products = dataset.products.filter((product) => product.market === scope)
   const productIds = new Set(products.map((product) => product.productId))
   return {
+    provenance: dataset.provenance,
     products,
     reviews: dataset.reviews.filter((review) => productIds.has(review.productId)),
     policies: dataset.policies.filter((policy) => policy.market === scope),

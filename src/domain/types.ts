@@ -8,10 +8,10 @@ export interface ProductRow {
   market: Market
   currency: Currency
   price: number
-  rating: number
-  reviewCount: number
+  rating: number | null
+  reviewCount: number | null
   capturedAt: string
-  sourceUrl: string
+  sourceUrl: string | null
 }
 
 export interface ReviewRow {
@@ -22,8 +22,8 @@ export interface ReviewRow {
   title: string
   body: string
   reviewedAt: string
-  verifiedPurchase: boolean
-  sourceUrl: string
+  verifiedPurchase: boolean | null
+  sourceUrl: string | null
 }
 
 export interface PolicyRow {
@@ -36,8 +36,19 @@ export interface PolicyRow {
   sourceUrl: string
 }
 
+export interface QuoteAnchor {
+  reviewId: string
+  field: 'title' | 'body'
+  quote: string
+  start: number
+  end: number
+}
+
+export type ReviewSentiment = 'positive' | 'negative' | 'neutral' | 'mixed'
+
 export interface EvidenceRef {
-  sourceUrl: string
+  quoteAnchor?: QuoteAnchor
+  sourceUrl: string | null
   capturedAt: string
   excerpt: string
   recordId: string
@@ -46,10 +57,33 @@ export interface EvidenceRef {
 
 export type PainQuadrant = 'urgent_fix' | 'emerging_risk' | 'core_strength' | 'opportunity'
 
+export interface ThemeSampleStats {
+  version: 'qling-sample-statistics/1'
+  productId: string
+  market: Market
+  basis: 'unreviewed-predictions'
+  sampleCount: number
+  mentionCount: number
+  negativeCount: number
+  mixedCount: number
+  mentionRate: number
+  negativeRate: number
+  timeRange: { from: string; to: string } | null
+  thresholds: { mentionRate: number; negativeRate: number; minimumSamples: number; minimumMentions: number }
+  status: 'eligible' | 'insufficient-sample'
+  quadrant: 'high-mention-high-negative' | 'high-mention-low-negative' | 'low-mention-high-negative' | 'low-mention-low-negative' | null
+}
+
 export interface ReviewTheme {
+  sampleStats?: ThemeSampleStats[]
+  aspectId?: string
+  productId?: string
+  market?: Market
+  evidenceLevel?: 'quote-anchored/2'
+  semanticStatus?: 'pending-review'
   id: string
   label: string
-  sentiment: 'positive' | 'negative'
+  sentiment: ReviewSentiment
   mentions: number
   evidence: EvidenceRef[]
   quadrant?: PainQuadrant
@@ -81,6 +115,7 @@ export interface ScoreBreakdown {
 export interface DataQualitySummary {
   totalReviews: number
   verifiedPurchaseRate: number
+  unknownPurchaseCount?: number
   timeRange: { from: string; to: string } | null
   linkedProducts: number
   deduplicatedCount: number
@@ -107,6 +142,7 @@ export interface ScoreContribution {
   weight: number
   direction: 'add' | 'subtract'
   weightedContribution: number
+  detail: string
 }
 
 export interface DecisionAction {
@@ -131,6 +167,10 @@ export interface ComplianceRisk {
 }
 
 export interface InsightReport {
+  batchRun?: BatchRun
+  evidenceProtocol?: 1 | 2
+  provenance?: DatasetProvenance
+  analysisVersion?: { rules: string; prompt: string; model: string }
   themes: ReviewTheme[]
   opportunityScore: number
   scoreBreakdown: ScoreBreakdown
@@ -148,12 +188,46 @@ export interface InsightReport {
 export type ProviderMode = 'fixture' | 'mock' | 'bailian'
 
 export interface ProviderAnalysis {
+  evidenceProtocol?: 1 | 2
+  model?: string
+  promptVersion?: string
   themes: ReviewTheme[]
   complianceRisks: ComplianceRisk[]
 }
 
+export interface BatchEntry {
+  id: string
+  productId: string
+  market: Market
+  reviewIds: string[]
+  dataDigest: string
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
+  attempts: number
+  cached: boolean
+  error?: 'network-or-timeout' | 'temporary-provider-error' | 'evidence-contract' | 'non-retryable-provider-error'
+  model?: string
+  promptVersion?: string
+}
+
+export interface BatchRun {
+  schemaVersion: 'qling-online-batches/1'
+  runId: string
+  dataDigest: string
+  status: 'queued' | 'running' | 'partial' | 'completed' | 'failed' | 'cancelled'
+  batches: BatchEntry[]
+}
+
 export interface DatasetBundle {
+  provenance?: DatasetProvenance
   products: ProductRow[]
   reviews: ReviewRow[]
   policies: PolicyRow[]
+}
+
+export type SourceKind = 'demo' | 'user-provided' | 'official' | 'unknown'
+
+export interface DatasetProvenance {
+  products: SourceKind
+  reviews: SourceKind
+  policies: SourceKind
 }

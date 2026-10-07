@@ -1,0 +1,2 @@
+reviewId,productId,market,locale,rating,title,body,reviewedAt,verifiedPurchase,sourceUrl
+MY-REVIEW-1,MY-SKU-US,US,en-US,2,Example only,Charger gets hot during charging.,2026-10-01,,

@@ -1,6 +1,7 @@
 import type { DatasetBundle } from '../domain/types'
 
 export const smartPetFeedersDataset: DatasetBundle = {
+  provenance: { products: 'demo', reviews: 'demo', policies: 'demo' },
   products: [
     {
       productId: 'pet-feeder-5l-us',

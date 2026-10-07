@@ -1,6 +1,8 @@
 import type { DragEvent } from 'react'
 import type { DataQualitySummary } from '../domain/types'
+import { marketLabel } from '../domain/labels'
 import { CATEGORY_PRESETS, type CategoryPreset } from '../fixtures/categories'
+import { DatasetImport, type DatasetImportResult } from './DatasetImport'
 
 export interface ImportErrorDetail { summary: string; detail: string }
 
@@ -14,6 +16,8 @@ export function DataPreparation({
   onFile,
   onReset,
   onAnalyze,
+  onDatasetImport,
+  importDisabled,
 }: {
   quality: DataQualitySummary
   sourceLabel: string
@@ -24,6 +28,8 @@ export function DataPreparation({
   onFile: (file?: File) => void
   onReset: () => void
   onAnalyze: () => void
+  onDatasetImport?: (result: DatasetImportResult) => void
+  importDisabled?: boolean
 }) {
   const handleDrop = (event: DragEvent<HTMLLabelElement>) => {
     event.preventDefault()
@@ -47,7 +53,7 @@ export function DataPreparation({
             <span>INDUSTRY PRESETS</span>
             <h2>典型出海品类预置</h2>
           </div>
-          <small>一键载入跨国商品、真实痛点与官方政策</small>
+          <small>一键载入商品、评论与政策演示样例，非商业事实验证</small>
         </div>
         <div className="category-grid">
           {CATEGORY_PRESETS.map((cat) => {
@@ -57,6 +63,7 @@ export function DataPreparation({
                 key={cat.id}
                 type="button"
                 className={`category-card ${isSelected ? 'active' : ''}`}
+                disabled={importDisabled}
                 onClick={() => onSelectCategory?.(cat)}
               >
                 <div className="cat-icon">{cat.icon}</div>
@@ -71,9 +78,11 @@ export function DataPreparation({
         </div>
       </section>
 
-      <div className="data-layout">
+      {onDatasetImport && <DatasetImport onImport={onDatasetImport} disabled={importDisabled} />}
+
+      <details className="advanced-section"><summary>仅替换演示评论 CSV（兼容入口）</summary><div className="data-layout">
         <label className="drop-zone" onDragOver={(event) => event.preventDefault()} onDrop={handleDrop}>
-          <input type="file" accept=".csv,text/csv" onChange={(event) => onFile(event.target.files?.[0])} />
+          <input aria-label="预置商品评论 CSV" type="file" accept=".csv,text/csv" disabled={importDisabled} onChange={(event) => onFile(event.target.files?.[0])} />
           <span className="drop-icon">↧</span>
           <strong>拖入自定义评论 CSV，或点击选择文件</strong>
           <p>最多 1,000 行、1 MB 文本；拒绝 email、phone、address 等个人信息字段。</p>
@@ -83,7 +92,7 @@ export function DataPreparation({
           <a href="./samples/reviews-template.csv" download>下载 CSV 模板</a>
           <button type="button" onClick={onReset}>恢复默认数码快充样例</button>
         </div>
-      </div>
+      </div></details>
 
       {error && (
         <div className="validation-error" role="alert">
@@ -99,19 +108,19 @@ export function DataPreparation({
             <span>VALIDATION RESULT</span>
             <h2>数据质量摘要</h2>
           </div>
-          <span className="quality-pass">✓ 隐私检查通过</span>
+          <span className="quality-pass">✓ 隐私检查通过（字段检查）</span>
         </div>
         <div className="quality-ledger">
           <div><span>当前数据</span><strong>{sourceLabel}</strong></div>
-          <div><span>评论记录</span><strong>{quality.totalReviews}</strong><small>有效购买 {Math.round(quality.verifiedPurchaseRate * 100)}%</small></div>
+          <div><span>评论记录</span><strong>{quality.totalReviews}</strong><small>已声明购买标记占样本 {Math.round(quality.verifiedPurchaseRate * 100)}% · 标记未知 {quality.unknownPurchaseCount ?? 0} 条</small></div>
           <div><span>关联商品</span><strong>{quality.linkedProducts}</strong><small>去重 {quality.deduplicatedCount} 条</small></div>
           <div><span>时间范围</span><strong>{quality.timeRange ? `${quality.timeRange.from} — ${quality.timeRange.to}` : '暂无'}</strong></div>
-          <div><span>市场覆盖</span><strong>{quality.marketCoverage.length ? quality.marketCoverage.join(' / ') : '暂无'}</strong></div>
+          <div><span>市场覆盖</span><strong>{quality.marketCoverage.length ? quality.marketCoverage.map((market) => marketLabel(market)).join(' / ') : '暂无'}</strong></div>
         </div>
       </section>
 
       <footer className="page-footer">
-        <p>{canAnalyze ? '数据门禁通过，可以生成确定性分析。' : '当前市场缺少商品、评论或政策证据，暂不能分析。'}</p>
+        <p>{canAnalyze ? '数据门禁通过，可以生成确定性分析；无政策资料不代表合规通过。' : '当前市场缺少商品或评论，暂不能分析。'}</p>
         <button className="primary-action" type="button" disabled={!canAnalyze} onClick={onAnalyze}>
           开始分析 <span>→</span>
         </button>

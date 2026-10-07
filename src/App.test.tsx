@@ -30,7 +30,46 @@ function mockFetch(analyzeFn: () => Response | Promise<Response>) {
   }) as typeof fetch
 }
 
+async function toggleOnlineConsent() {
+  const checkbox = screen.getByRole('checkbox', { name: /同意本次在线处理/ })
+  await waitFor(() => expect(checkbox).toBeEnabled())
+  fireEvent.click(checkbox)
+}
+
 describe('App AI state machine', () => {
+  it('does not send data before consent and revokes consent on market changes', async () => {
+    originalFetch = globalThis.fetch
+    const mocked = mockFetch(() => bailianEnvelope(validAnalysis))
+    globalThis.fetch = mocked
+    render(<App />)
+    await waitFor(() => expect(screen.getByText('百炼可用')).toBeInTheDocument())
+    const button = screen.getByRole('button', { name: '运行百炼增强' })
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: /同意本次在线处理/ })).toBeEnabled())
+    expect(button).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: /同意本次在线处理/ })).not.toBeChecked()
+    fireEvent.click(button)
+    expect(vi.mocked(mocked).mock.calls.some(([request]) => String(request).includes('/api/analyze'))).toBe(false)
+    await toggleOnlineConsent()
+    expect(button).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: '欧盟' }))
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: /同意本次在线处理/ })).not.toBeChecked())
+    expect(button).toBeDisabled()
+  })
+
+  it('ignores a pending response after online consent is withdrawn', async () => {
+    originalFetch = globalThis.fetch
+    let complete: ((response: Response) => void) | undefined
+    globalThis.fetch = mockFetch(() => new Promise<Response>((resolve) => { complete = resolve }))
+    render(<App />)
+    await waitFor(() => expect(screen.getByText('百炼可用')).toBeInTheDocument())
+    await toggleOnlineConsent()
+    fireEvent.click(screen.getByRole('button', { name: '运行百炼增强' }))
+    await waitFor(() => expect(complete).toBeDefined())
+    await toggleOnlineConsent()
+    complete!(bailianEnvelope(validAnalysis))
+    await waitFor(() => expect(screen.getByRole('button', { name: '运行百炼增强' })).toBeDisabled())
+    expect(screen.getByRole('heading', { name: /让数据先通过审查/ })).toBeInTheDocument()
+  })
   let originalFetch: typeof globalThis.fetch | undefined
 
   afterEach(() => {
@@ -50,6 +89,7 @@ describe('App AI state machine', () => {
       expect(screen.getByText('百炼可用')).toBeInTheDocument()
     })
 
+    await toggleOnlineConsent()
     fireEvent.click(screen.getByRole('button', { name: '运行百炼增强' }))
 
     // 分析成功后自动进入 02 市场机会页
@@ -68,6 +108,7 @@ describe('App AI state machine', () => {
       expect(screen.getByText('百炼可用')).toBeInTheDocument()
     })
 
+    await toggleOnlineConsent()
     fireEvent.click(screen.getByRole('button', { name: '运行百炼增强' }))
 
     // 应回退到本地分析并显示错误提示 + 重试按钮
@@ -93,6 +134,7 @@ describe('App AI state machine', () => {
     await waitFor(() => expect(screen.getByText('百炼可用')).toBeInTheDocument())
 
     // 第一次分析失败
+    await toggleOnlineConsent()
     fireEvent.click(screen.getByRole('button', { name: '运行百炼增强' }))
     await waitFor(() => {
       expect(screen.getByText(/安全回退/)).toBeInTheDocument()
@@ -120,5 +162,20 @@ describe('App AI state machine', () => {
     // AI 按钮应禁用
     const button = screen.getByRole('button', { name: '运行百炼增强' })
     expect(button).toBeDisabled()
+  })
+
+  it('keeps the header market label aligned with the selected scope', async () => {
+    originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn(async () => { throw new Error('offline') }) as typeof fetch
+
+    render(<App />)
+
+    const headerMarket = () => screen.getAllByText('目标市场').find((element) => element.tagName === 'DT')?.nextElementSibling
+    expect(headerMarket()).toHaveTextContent('美国 + 欧盟')
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /宠物智能喂食器/ })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: /宠物智能喂食器/ }))
+    expect(headerMarket()).toHaveTextContent('全部市场')
+    expect(headerMarket()).not.toHaveTextContent('欧盟')
   })
 })

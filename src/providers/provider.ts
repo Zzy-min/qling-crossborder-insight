@@ -1,10 +1,20 @@
 import { z } from 'zod'
 import { extractComplianceRisks, extractThemes } from '../domain/analysis'
 import type { DatasetBundle, EvidenceRef, ProviderAnalysis, ProviderMode } from '../domain/types'
+import { validateAnchoredOutput } from '../domain/evidence-contract.mjs'
+import type { AnalysisRun } from '../domain/analysis-run'
+import type { QuoteAnchor } from '../domain/types'
+import type { ConceptImageResponse } from '../domain/concept-image'
+
+export interface AnalyzeOptions {
+  protocolVersion?: 1 | 2
+  signal?: AbortSignal
+  runId?: string
+}
 
 export interface AnalysisProvider {
   readonly mode: ProviderMode
-  analyze(dataset: DatasetBundle): Promise<ProviderAnalysis>
+  analyze(dataset: DatasetBundle, options?: AnalyzeOptions): Promise<ProviderAnalysis>
 }
 
 export class FixtureProvider implements AnalysisProvider {
@@ -43,7 +53,19 @@ const modelOutputSchema = z.object({
   })).max(20),
 })
 
-function materializeModelOutput(content: string, dataset: DatasetBundle): ProviderAnalysis {
+function materializeModelOutput(content: string, dataset: DatasetBundle, protocolVersion: 1 | 2 = 1): ProviderAnalysis {
+  if (protocolVersion === 2) {
+    const parsed = validateAnchoredOutput(JSON.parse(content), dataset)
+    const legacyRisks = materializeModelOutput(JSON.stringify({ themes: [], complianceRisks: parsed.complianceRisks }), dataset).complianceRisks
+    return { evidenceProtocol: 2, complianceRisks: legacyRisks, themes: parsed.themes.map(({ quotes, ...theme }) => ({
+      ...theme, evidenceLevel: 'quote-anchored/2', semanticStatus: 'pending-review',
+      mentions: new Set(quotes.map((anchor) => anchor.reviewId)).size,
+      evidence: [...new Map(quotes.map((anchor) => [JSON.stringify(anchor), anchor])).values()].map((anchor) => {
+        const review = dataset.reviews.find((item) => item.reviewId === anchor.reviewId)!
+        return { recordId: review.reviewId, evidenceType: 'review' as const, sourceUrl: review.sourceUrl, capturedAt: review.reviewedAt, excerpt: `${review.title}: ${review.body}`, quoteAnchor: anchor }
+      }),
+    })) }
+  }
   const parsed = modelOutputSchema.parse(JSON.parse(content))
   const reviewMap = new Map(dataset.reviews.map((row) => [row.reviewId, row]))
   const policyMap = new Map(dataset.policies.map((row) => [row.policyId, row]))
@@ -64,8 +86,6 @@ function materializeModelOutput(content: string, dataset: DatasetBundle): Provid
         ...theme,
         mentions: uniqueReviewIds.length,
         evidence: uniqueReviewIds.map(reviewEvidence),
-        quadrant: uniqueReviewIds.length >= 2 ? ('urgent_fix' as const) : ('emerging_risk' as const),
-        severityScore: Math.min(10, uniqueReviewIds.length * 3 + 4),
       }
     }),
     complianceRisks: parsed.complianceRisks.map(({ policyIds, ...risk }) => {
@@ -96,14 +116,25 @@ export interface ProxyProviderOptions {
   timeoutMs?: number
 }
 
+export class EvidenceContractError extends Error {
+  constructor() { super('AI evidence contract rejected') }
+}
+
+export class ProviderRequestError extends Error {
+  constructor(message: string, readonly retryable: boolean, readonly kind: 'network-or-timeout' | 'temporary-provider-error' | 'non-retryable-provider-error') { super(message) }
+}
+
 export class ProxyProvider implements AnalysisProvider {
   readonly mode = 'bailian' as const
+  providerOrigin: string | null = null
+  model: string | null = null
+  promptVersion: string | null = null
   private readonly fetcher: typeof fetch
   private readonly baseUrl: string
   private readonly timeoutMs: number
 
   constructor(options: ProxyProviderOptions = {}) {
-    this.fetcher = options.fetcher ?? fetch
+    this.fetcher = options.fetcher ?? fetch.bind(globalThis)
     this.baseUrl = (options.baseUrl ?? '').replace(/\/$/, '')
     this.timeoutMs = options.timeoutMs ?? 70_000
   }
@@ -112,29 +143,130 @@ export class ProxyProvider implements AnalysisProvider {
     try {
       const response = await this.fetcher(`${this.baseUrl}/health`, { headers: { Accept: 'application/json' } })
       if (!response.ok) return false
-      return z.object({ providerConfigured: z.boolean() }).parse(await response.json()).providerConfigured
+      const health = z.object({ providerConfigured: z.boolean(), providerEndpoint: z.string().optional(), model: z.string().max(200).optional(), promptVersion: z.string().max(200).optional() }).parse(await response.json())
+      this.model = health.model ?? null
+      this.promptVersion = health.promptVersion ?? null
+      if (health.providerEndpoint) {
+        const endpoint = new URL(health.providerEndpoint)
+        this.providerOrigin = ['https:', 'http:'].includes(endpoint.protocol) ? endpoint.origin : null
+      }
+      return health.providerConfigured
     } catch {
       return false
     }
   }
 
-  async analyze(dataset: DatasetBundle): Promise<ProviderAnalysis> {
+  async analyze(dataset: DatasetBundle, options: AnalyzeOptions = {}): Promise<ProviderAnalysis> {
+    options.signal?.throwIfAborted()
     let response: Response
     try {
       response = await this.fetcher(`${this.baseUrl}/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dataset),
-        signal: AbortSignal.timeout(this.timeoutMs),
+        body: JSON.stringify(options.protocolVersion === 2 ? { protocolVersion: 2, dataset } : dataset),
+        signal: options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(this.timeoutMs)]) : AbortSignal.timeout(this.timeoutMs),
+      })
+    } catch (error) {
+      if (options.signal?.aborted) throw new DOMException('Analysis cancelled', 'AbortError')
+      if (error instanceof DOMException && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+        throw new ProviderRequestError(`AI proxy request timeout after ${Math.round(this.timeoutMs / 1000)}s`, true, 'network-or-timeout')
+      }
+      throw new ProviderRequestError('AI proxy network unavailable', true, 'network-or-timeout')
+    }
+    if (!response.ok) {
+      const errorBody: unknown = await response.json().catch(() => null)
+      if (options.protocolVersion === 2 && z.object({ reason: z.literal('invalid_evidence_contract') }).safeParse(errorBody).success) throw new EvidenceContractError()
+      const details = z.object({ error: z.string().optional(), upstreamStatus: z.number().int().optional() }).safeParse(errorBody)
+      const value = details.success ? details.data : {}
+      const retryable = value.error !== 'provider_not_configured' && ([429, 503, 504].includes(response.status) || (response.status === 502 && (['provider_unavailable', 'provider_timeout'].includes(value.error ?? '') || [408, 429, 500, 502, 503, 504].includes(value.upstreamStatus ?? 0))))
+      throw new ProviderRequestError(`AI proxy request failed: HTTP ${response.status}`, retryable, retryable ? 'temporary-provider-error' : 'non-retryable-provider-error')
+    }
+    try {
+      const envelope: unknown = await response.json()
+      if (options.protocolVersion === 2) z.object({ protocolVersion: z.literal(2) }).parse(envelope)
+      const model = z.object({ model: z.string().max(200).optional() }).parse(envelope).model
+      return { ...materializeModelOutput(modelContent(envelope), dataset, options.protocolVersion), model, promptVersion: response.headers.get('x-qling-prompt-version') ?? undefined }
+    } catch (error) {
+      if (options.protocolVersion === 2) throw new EvidenceContractError()
+      throw error
+    }
+  }
+
+  async generateAnchoredConceptImage(run: AnalysisRun, themeId: string, anchors: QuoteAnchor[], hypothesis: string, options: { signal?: AbortSignal } = {}) {
+    options.signal?.throwIfAborted()
+    const { createConceptImageRequest, validateConceptImageResponse } = await import('../domain/concept-image')
+    options.signal?.throwIfAborted()
+    const input = createConceptImageRequest(run, themeId, anchors, hypothesis)
+    const signal = options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(165_000)]) : AbortSignal.timeout(165_000)
+    signal.throwIfAborted()
+    const response = await this.fetcher(`${this.baseUrl}/api/images`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input), signal,
+    })
+    signal.throwIfAborted()
+    if (!response.ok) {
+      void response.body?.cancel().catch(() => {})
+      throw new Error(`Concept image request failed: HTTP ${response.status}`)
+    }
+    if (!response.body) throw new Error('生图响应为空')
+    const reader = response.body.getReader()
+    const cancel = () => { void reader.cancel(signal.reason).catch(() => {}) }
+    signal.addEventListener('abort', cancel, { once: true })
+    const chunks: Uint8Array[] = []
+    let size = 0
+    try {
+      while (true) {
+        signal.throwIfAborted()
+        const { done, value } = await reader.read()
+        signal.throwIfAborted()
+        if (done) break
+        size += value.byteLength
+        if (size > 64 * 1024) throw new Error('生图响应超过 64 KB')
+        chunks.push(value)
+      }
+      const bytes = new Uint8Array(size)
+      let offset = 0
+      for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength }
+      const parsed = validateConceptImageResponse(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)), input)
+      signal.throwIfAborted()
+      return { ...parsed, imageUrl: `${this.baseUrl}/api/images/${parsed.imageId}` }
+    } catch (error) {
+      cancel()
+      throw error
+    } finally {
+      signal.removeEventListener('abort', cancel)
+      reader.releaseLock()
+    }
+  }
+
+  async downloadAnchoredConceptImage(run: AnalysisRun, themeId: string, image: ConceptImageResponse & { imageUrl?: string }, options: { signal?: AbortSignal } = {}) {
+    options.signal?.throwIfAborted()
+    const { fetchConceptImageFile } = await import('../domain/concept-image-file')
+    const { imageUrl: _ignored, ...metadata } = image
+    const signal = options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000)
+    return fetchConceptImageFile(this.fetcher, `${this.baseUrl}/api/images/${metadata.imageId}`, run, themeId, metadata, signal)
+  }
+
+  async generateConceptImage(input: { prompt: string; reviewIds: string[] }): Promise<{ imageUrl: string; imageId: string; reviewIds: string[] }> {
+    let response: Response
+    try {
+      response = await this.fetcher(`${this.baseUrl}/api/images`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: input.prompt, reviewIds: input.reviewIds }),
+        signal: AbortSignal.timeout(130_000),
       })
     } catch (error) {
       if (error instanceof DOMException && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
-        throw new Error(`AI proxy request timeout after ${Math.round(this.timeoutMs / 1000)}s`)
+        throw new Error('concept image request timeout')
       }
       throw error
     }
-    if (!response.ok) throw new Error(`AI proxy request failed: HTTP ${response.status}`)
-    return materializeModelOutput(modelContent(await response.json()), dataset)
+    if (!response.ok) throw new Error(`concept image request failed: HTTP ${response.status}`)
+    const parsed = z.object({
+      imageId: z.string().regex(/^[a-f0-9]{16}$/),
+      reviewIds: z.array(z.string().min(1)).min(1),
+    }).parse(await response.json())
+    return { ...parsed, imageUrl: `${this.baseUrl}/api/images/${parsed.imageId}` }
   }
 }
 
@@ -155,7 +287,7 @@ export class BailianProvider implements AnalysisProvider {
     if (!options.apiKey.trim()) throw new Error('Bailian API key is required')
     this.endpoint = options.endpoint ?? 'https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions'
     this.model = options.model ?? 'qwen3.7-plus'
-    this.fetcher = options.fetcher ?? fetch
+    this.fetcher = options.fetcher ?? fetch.bind(globalThis)
   }
 
   async analyze(dataset: DatasetBundle): Promise<ProviderAnalysis> {
@@ -175,6 +307,8 @@ export class BailianProvider implements AnalysisProvider {
       }),
     })
     if (!response.ok) throw new Error(`Bailian request failed: HTTP ${response.status}`)
-    return materializeModelOutput(modelContent(await response.json()), dataset)
+    const envelope: unknown = await response.json()
+    const model = z.object({ model: z.string().max(200).optional() }).parse(envelope).model
+    return { ...materializeModelOutput(modelContent(envelope), dataset), model, promptVersion: 'qling-direct-analysis/1' }
   }
 }

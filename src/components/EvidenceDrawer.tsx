@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { EvidenceRef } from '../domain/types'
+import { safeSourceUrl } from '../domain/export-safety'
 
 export interface EvidenceSelection {
   title: string
@@ -58,9 +59,9 @@ export function EvidenceDrawer({ selection, onClose }: { selection: EvidenceSele
     <div className="confidence-row"><span>结论可信状态</span><strong>{selection.confidence}</strong></div>
     <p className="drawer-explanation">{selection.explanation}</p>
     <div className="evidence-stack">
-      {selection.evidence.map((item) => <article key={`${item.evidenceType}-${item.recordId}`}><div><span>{item.evidenceType === 'review' ? '评论' : item.evidenceType === 'policy' ? '政策' : '商品'}</span><time>{item.capturedAt}</time></div><strong>记录 {item.recordId}</strong><p>“{item.excerpt}”</p>{item.sourceUrl.startsWith('fixture:') ? <small>本地演示证据 · 非实时数据</small> : <a href={item.sourceUrl} target="_blank" rel="noreferrer">打开官方来源 ↗</a>}</article>)}
+      {selection.evidence.map((item, index) => <article key={`${item.evidenceType}-${item.recordId}-${index}`}><div><span>{item.evidenceType === 'review' ? '评论' : item.evidenceType === 'policy' ? '政策' : '商品'}</span><time>{item.capturedAt}</time></div><strong>记录 {item.recordId}</strong>{item.quoteAnchor ? <div className="quote-anchor"><small>原文锚点 · {item.quoteAnchor.field} · UTF-16 [{item.quoteAnchor.start}, {item.quoteAnchor.end})</small><p><mark>{item.quoteAnchor.quote}</mark></p><small>结构通过 · 语义待人工复核；匹配词不代表理解否定或上下文</small></div> : item.evidenceType === 'review' ? <small>旧版 ID 绑定 · 无精确原文锚点</small> : null}<p>“{item.excerpt}”</p>{item.sourceUrl?.startsWith('fixture:') ? <small>本地演示证据 · 非实时数据</small> : safeSourceUrl(item.sourceUrl) ? <a href={safeSourceUrl(item.sourceUrl)} target="_blank" rel="noreferrer">打开来源资料（身份待核验） ↗</a> : <small>来源链接缺失或不安全，未提供跳转</small>}</article>)}
       {!selection.evidence.length && <p className="empty-state">该分项没有直接证据，当前仅展示确定性计算说明。</p>}
     </div>
-    <footer>所有结论必须绑定已知 recordId；未知引用会在领域层被拒绝。</footer>
+    <footer>原文匹配只验证引用结构，不证明主题或情绪正确；请结合完整评论复核。</footer>
   </aside>
 }

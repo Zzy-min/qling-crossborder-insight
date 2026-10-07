@@ -48,12 +48,12 @@ export class CsvValidationError extends Error {
   }
 }
 
-interface CsvRecord {
+export interface CsvRecord {
   cells: string[]
   startLine: number
 }
 
-function parseCsvRecords(csv: string): CsvRecord[] {
+export function parseCsvRecords(csv: string, delimiter = ','): CsvRecord[] {
   const records: CsvRecord[] = []
   let cells: string[] = []
   let current = ''
@@ -77,7 +77,7 @@ function parseCsvRecords(csv: string): CsvRecord[] {
       } else {
         quoted = !quoted
       }
-    } else if (character === ',' && !quoted) {
+    } else if (character === delimiter && !quoted) {
       cells.push(current.trim())
       current = ''
     } else if ((character === '\n' || character === '\r') && !quoted) {

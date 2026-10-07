@@ -34,6 +34,26 @@ function TestHost() {
 }
 
 describe('EvidenceDrawer', () => {
+  it('shows exact anchor coordinates as inert text and keeps semantics pending', () => {
+    const quote = '<img src=x onerror=alert(1)>'
+    const selection = { ...sampleSelection, evidence: [{ ...sampleEvidence[0], quoteAnchor: { reviewId: 'review-1', field: 'body' as const, quote, start: 2, end: 28 } }] }
+    const { container } = render(<EvidenceDrawer selection={selection} onClose={() => {}} />)
+    expect(screen.getByText(/UTF-16 \[2, 28\)/)).toBeInTheDocument()
+    expect(screen.getByText(/结构通过 · 语义待人工复核/)).toBeInTheDocument()
+    expect(container.querySelector('mark')?.textContent).toBe(quote)
+    expect(container.querySelector('img, script, [onerror]')).toBeNull()
+  })
+  it('does not expose unsafe links or treat user links as official', () => {
+    render(<EvidenceDrawer onClose={() => {}} selection={{ ...sampleSelection, evidence: [
+      { ...sampleEvidence[0], sourceUrl: 'javascript:alert(1)' },
+      { ...sampleEvidence[0], recordId: 'safe', sourceUrl: 'https://example.com/review' },
+    ] }} />)
+    const links = screen.getAllByRole('link')
+    expect(links).toHaveLength(1)
+    expect(links[0]).toHaveAttribute('href', 'https://example.com/review')
+    expect(links[0]).toHaveTextContent('身份待核验')
+    expect(screen.getByText(/来源链接缺失或不安全/)).toBeInTheDocument()
+  })
   it('does not render a dialog when selection is null', () => {
     render(<TestHost />)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
